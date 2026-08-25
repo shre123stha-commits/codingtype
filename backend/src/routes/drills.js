@@ -1,0 +1,28 @@
+import { Router } from 'express';
+
+import { db } from '../store/fileStore.js';
+
+const router = Router();
+
+const DEFAULT_SYMBOLS = [';', '}', '=>'];
+
+router.get('/adaptive', (req, res) => {
+  const agg = {};
+  for (const s of db.all()) {
+    for (const [sym, v] of Object.entries(s.symbolStats || {})) {
+      const cur = agg[sym] || { t: 0, e: 0 };
+      cur.t += Number(v.t) || 0;
+      cur.e += Number(v.e) || 0;
+      agg[sym] = cur;
+    }
+  }
+  const withErrors = Object.entries(agg)
+    .map(([key, v]) => ({ key, t: v.t, e: v.e }))
+    .filter((v) => v.e > 0)
+    .sort((a, b) => b.e - a.e || b.t - a.t)
+    .slice(0, 3);
+  const symbols = withErrors.length ? withErrors : DEFAULT_SYMBOLS.map((key) => ({ key, t: 0, e: 0 }));
+  res.json({ symbols, adaptive: withErrors.length > 0 });
+});
+
+export default router;

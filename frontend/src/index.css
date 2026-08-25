@@ -1,0 +1,309 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+:root[data-theme='obsidian'] {
+  --c-bg: 11 15 25;
+  --c-panel: 15 23 42;
+  --c-panel2: 17 26 46;
+  --c-edge: 30 41 59;
+  --c-edge2: 39 54 77;
+  --c-accent: 250 204 21;
+  --c-accent2: 253 224 71;
+  --c-pulse: 56 189 248;
+  --c-ink: 226 232 240;
+  --c-dim: 100 116 139;
+  --c-faint: 71 85 105;
+  --c-blood: 248 113 113;
+  --c-good: 52 211 153;
+  --c-auto: 61 76 102;
+  --c-ghost: 85 104 138;
+  --glow: rgba(56, 189, 248, 0.06);
+  --dot: rgba(148, 163, 184, 0.055);
+  --syn-keyword: #38bdf8;
+  --syn-string: #fbbf24;
+  --syn-number: #f472b6;
+  --syn-function: #a5b4fc;
+  --syn-comment: #4b5a72;
+  --syn-class: #34d399;
+  --syn-operator: #7d8ea8;
+  --syn-punct: #5b6b84;
+  --syn-bool: #fb923c;
+  --syn-base: #8b9bb4;
+}
+
+:root[data-theme='phantom'] {
+  --c-bg: 5 11 13;
+  --c-panel: 10 20 24;
+  --c-panel2: 13 26 31;
+  --c-edge: 22 38 43;
+  --c-edge2: 33 56 65;
+  --c-accent: 52 211 153;
+  --c-accent2: 110 231 183;
+  --c-pulse: 167 139 250;
+  --c-ink: 220 235 231;
+  --c-dim: 125 154 148;
+  --c-faint: 85 112 107;
+  --c-blood: 251 113 133;
+  --c-good: 74 222 128;
+  --c-auto: 74 96 92;
+  --c-ghost: 105 132 128;
+  --glow: rgba(52, 211, 153, 0.05);
+  --dot: rgba(125, 154, 148, 0.06);
+  --syn-keyword: #2dd4bf;
+  --syn-string: #fbbf24;
+  --syn-number: #e879f9;
+  --syn-function: #c4b5fd;
+  --syn-comment: #517a72;
+  --syn-class: #4ade80;
+  --syn-operator: #8fb3ab;
+  --syn-punct: #6b8f89;
+  --syn-bool: #fb923c;
+  --syn-base: #93b5ad;
+}
+
+:root[data-theme='paper'] {
+  --c-bg: 238 242 246;
+  --c-panel: 255 255 255;
+  --c-panel2: 248 250 252;
+  --c-edge: 203 213 225;
+  --c-edge2: 148 163 184;
+  --c-accent: 180 83 9;
+  --c-accent2: 146 64 14;
+  --c-pulse: 3 105 161;
+  --c-ink: 15 23 42;
+  --c-dim: 71 85 105;
+  --c-faint: 100 116 139;
+  --c-blood: 220 38 38;
+  --c-good: 4 120 87;
+  --c-auto: 182 194 209;
+  --c-ghost: 148 163 184;
+  --glow: rgba(3, 105, 161, 0.05);
+  --dot: rgba(15, 23, 42, 0.06);
+  --syn-keyword: #0369a1;
+  --syn-string: #b45309;
+  --syn-number: #be185d;
+  --syn-function: #4338ca;
+  --syn-comment: #94a3b8;
+  --syn-class: #047857;
+  --syn-operator: #475569;
+  --syn-punct: #64748b;
+  --syn-bool: #c2410c;
+  --syn-base: #475569;
+}
+
+:root[data-theme='bone'] {
+  --c-bg: 243 239 230;
+  --c-panel: 251 249 244;
+  --c-panel2: 246 242 233;
+  --c-edge: 216 208 189;
+  --c-edge2: 179 166 137;
+  --c-accent: 146 64 14;
+  --c-accent2: 120 53 15;
+  --c-pulse: 15 118 110;
+  --c-ink: 28 25 23;
+  --c-dim: 87 83 78;
+  --c-faint: 120 113 108;
+  --c-blood: 220 38 38;
+  --c-good: 4 120 87;
+  --c-auto: 214 207 192;
+  --c-ghost: 168 162 158;
+  --glow: rgba(15, 118, 110, 0.05);
+  --dot: rgba(28, 25, 23, 0.07);
+  --syn-keyword: #0f766e;
+  --syn-string: #b45309;
+  --syn-number: #be185d;
+  --syn-function: #4338ca;
+  --syn-comment: #a8a29e;
+  --syn-class: #15803d;
+  --syn-operator: #57534e;
+  --syn-punct: #78716c;
+  --syn-bool: #c2410c;
+  --syn-base: #57534e;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-obsidian font-mono text-ink antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, var(--glow), transparent),
+    radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    22px 22px;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgb(var(--c-accent) / 0.3);
+  color: rgb(var(--c-accent2));
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-edge2)) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-edge2));
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer components {
+  .hud-card {
+    @apply relative border border-edge bg-panel/70 backdrop-blur-[2px];
+  }
+
+  .hud-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.22em] text-dim;
+  }
+
+  .hud-value {
+    @apply text-ink tabular-nums;
+  }
+
+  .chip {
+    @apply cursor-pointer select-none border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors duration-100;
+  }
+
+  .chip-off {
+    @apply border-edge bg-transparent text-dim hover:border-edge2 hover:text-ink;
+  }
+
+  .chip-on-amber {
+    @apply border-accent/70 bg-accent/10 text-accent shadow-glow-amber;
+  }
+
+  .chip-on-cyan {
+    @apply border-pulse/70 bg-pulse/10 text-pulse shadow-glow-cyan;
+  }
+
+  .c-pend {
+    color: var(--syn-base);
+  }
+
+  .c-done {
+    animation: ct-flash-good 0.5s ease-out;
+  }
+
+  .c-err {
+    color: rgb(var(--c-blood));
+    background: rgb(var(--c-blood) / 0.12);
+    text-shadow: 0 0 8px rgb(var(--c-blood) / 0.4);
+    animation: ct-flash-bad 0.25s ease-out;
+  }
+
+  .c-curr-err {
+    color: rgb(var(--c-blood));
+    background: rgb(var(--c-blood) / 0.2);
+    text-shadow: 0 0 10px rgb(var(--c-blood) / 0.6);
+    animation: ct-flash-bad 0.3s ease-out;
+  }
+
+  .c-auto {
+    text-decoration: underline dotted rgb(var(--c-pulse) / 0.7);
+    text-underline-offset: 3px;
+  }
+
+  .c-pindent {
+    color: transparent;
+    border-bottom: 1px dashed rgb(var(--c-accent) / 0.5);
+  }
+
+  .c-ghost {
+    color: rgb(var(--c-ghost));
+    opacity: 0.5;
+  }
+
+  .c-blind {
+    opacity: 0;
+  }
+
+  @keyframes ct-flash-good {
+    from {
+      color: rgb(var(--c-good));
+      text-shadow:
+        0 0 10px rgb(var(--c-good) / 0.85),
+        0 0 22px rgb(var(--c-good) / 0.4);
+    }
+  }
+
+  @keyframes ct-flash-bad {
+    from {
+      text-shadow:
+        0 0 16px rgb(var(--c-blood) / 1),
+        0 0 30px rgb(var(--c-blood) / 0.5);
+    }
+  }
+
+  .tk-keyword,
+  .tk-storage,
+  .tk-directive,
+  .tk-preprocessor {
+    color: var(--syn-keyword);
+  }
+
+  .tk-string,
+  .tk-char {
+    color: var(--syn-string);
+  }
+
+  .tk-number {
+    color: var(--syn-number);
+  }
+
+  .tk-function,
+  .tk-macro {
+    color: var(--syn-function);
+  }
+
+  .tk-comment {
+    color: var(--syn-comment);
+    font-style: italic;
+  }
+
+  .tk-class-name,
+  .tk-namespace,
+  .tk-builtin,
+  .tk-type {
+    color: var(--syn-class);
+  }
+
+  .tk-operator,
+  .tk-attr,
+  .tk-property,
+  .tk-regex {
+    color: var(--syn-operator);
+  }
+
+  .tk-punctuation,
+  .tk-variable,
+  .tk-params,
+  .tk-label,
+  .tk-symbol,
+  .tk-constant {
+    color: var(--syn-punct);
+  }
+
+  .tk-boolean,
+  .tk-null,
+  .tk-attr-value,
+  .tk-entity,
+  .tk-important,
+  .tk-selector {
+    color: var(--syn-bool);
+  }
+}
