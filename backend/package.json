@@ -1,0 +1,17 @@
+{
+  "name": "codetype-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CodeType backend — snippet repository, session persistence, symbol telemetry aggregation.",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}

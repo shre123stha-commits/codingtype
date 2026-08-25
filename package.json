@@ -1,0 +1,16 @@
+{
+  "name": "codetype",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CodeType — developer-focused typing telemetry engine. Tactical cyber-HUD typing trainer for software engineers.",
+  "scripts": {
+    "setup": "npm install --prefix backend && npm install --prefix frontend && npm install",
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "start:api": "npm start --prefix backend",
+    "start:web": "npm run dev --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
