@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # CODETYPE // Dev-Tuned Typing Telemetry
 
 A production-ready, developer-focused typing trainer — a specialized alternative to Monkeytype,
@@ -270,3 +271,7 @@ codetype/
 node scripts/smoke.mjs             # 35 engine asserts (headless, no browser)
 node scripts/verify-features.mjs   # 25-check E2E incl. full 2-player ws race (Playwright)
 ```
+=======
+# codetype
+A website for to practice touch typing through code 
+>>>>>>> 57554139a67450843fa874c764947f3f66eeb3fe
