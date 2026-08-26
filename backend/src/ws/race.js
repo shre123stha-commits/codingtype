@@ -45,7 +45,7 @@ function summarizeRoom(room, forWs) {
     strict: room.config.strict,
     expiresAt: room.expiresAt,
     opp: room.b
-      ? { name: room.b.bot ? room.b.bot.name : (isCreator ? 'OPERATOR' : 'CREATOR'), bot: Boolean(room.b.bot) }
+      ? { name: room.b.bot ? room.b.bot.name : (isCreator ? 'RIVAL' : 'RIVAL'), bot: Boolean(room.b.bot) }
       : null
   };
 }
@@ -60,7 +60,7 @@ export function createRaceWs(server) {
   };
   const sendOpp = (room, fromSide, msg) => {
     const opp = fromSide === 'a' ? room.b : room.a;
-    if (opp) send(opp.ws, msg);
+    if (opp && opp.ws) send(opp.ws, msg);
   };
 
   const clearRoomTimers = (room) => {
@@ -77,36 +77,57 @@ export function createRaceWs(server) {
     if (notifyWs) send(notifyWs, { type: 'roomClosed', code: room.code, reason });
   };
 
-  const makeBot = (name) => ({ name, cpm: 240 + Math.floor(Math.random() * 180), startedAt: 0, totalChars: 0, timer: null, catchup: null });
+  const makeBot = (name) => ({
+    name,
+    cpm: 240 + Math.floor(Math.random() * 180),
+    startedAt: 0,
+    totalChars: 0,
+    currentChars: 0,
+    seed: Math.floor(Math.random() * 100),
+    timer: null
+  });
 
   const stopBot = (room) => {
     const botSide = room.b && room.b.bot ? room.b : null;
     if (botSide) {
       if (botSide.bot.timer) clearInterval(botSide.bot.timer);
-      if (botSide.bot.catchup) clearTimeout(botSide.bot.catchup);
       botSide.bot.timer = null;
-      botSide.bot.catchup = null;
     }
   };
 
-  const forceBotFinish = (room) => {
+  // Honest stats for whatever the bot actually typed. Used both for a full
+  // natural finish and for freezing the bot mid-run when the human wins,
+  // so the opponent is never shown "finished" or with a padded WPM.
+  const botStats = (room, chars) => {
+    const bot = room.b.bot;
+    const elapsed = Math.max(0.5, (Date.now() - bot.startedAt) / 1000);
+    const accuracy = Math.round((93 + (bot.seed % 6)) * 10) / 10; // 93.0-98.0
+    const rawWpm = Math.round((chars / 5) / (elapsed / 60));
+    const wpm = Math.max(1, Math.round(rawWpm * (accuracy / 100)));
+    return {
+      wpm,
+      rawWpm,
+      cpm: Math.round((chars / elapsed) * 60),
+      accuracy,
+      timeSec: Math.round(elapsed * 10) / 10,
+      errors: Math.max(1, Math.round(chars * (1 - accuracy / 100)))
+    };
+  };
+
+  // Freeze the bot exactly where it is.
+  // ended=true  -> the bot itself completed the target (a real finish)
+  // ended=false -> the human won and the bot's partial progress is what it is
+  const settleBot = (room, ended) => {
     const botSide = room.b;
-    if (!room || !botSide || !botSide.bot || botSide.done) return;
+    if (!room || !botSide || !botSide.bot || botSide.stats) return;
     const bot = botSide.bot;
     if (bot.timer) clearInterval(bot.timer);
     bot.timer = null;
-    botSide.done = true;
-    botSide.stats = {
-      wpm: Math.round((bot.cpm * 5) / 18),
-      rawWpm: Math.round((bot.cpm * 5) / 16),
-      cpm: bot.cpm,
-      accuracy: 97.5,
-      timeSec: Math.round(((Date.now() - bot.startedAt) / 1000) * 10) / 10,
-      errors: Math.max(1, Math.round(bot.totalChars * 0.025))
-    };
-    botSide.finishedAt = Date.now();
-    send(room.a.ws, { type: 'opponent', chars: bot.totalChars, done: true });
-    if (room.a.done) finishRace(room, 'finish');
+    const chars = Math.min(bot.currentChars, bot.totalChars);
+    botSide.done = ended;
+    botSide.stats = botStats(room, chars);
+    botSide.finishedAt = ended ? Date.now() : (room.a.finishedAt || Date.now()) + 1;
+    send(room.a.ws, { type: 'opponent', chars, done: ended });
   };
 
   const runBot = (room) => {
@@ -119,13 +140,21 @@ export function createRaceWs(server) {
       if (elapsed < 0) return;
       const duration = Math.max(8, (bot.totalChars / bot.cpm) * 60);
       const chars = Math.min(bot.totalChars, Math.floor((elapsed / duration) * bot.totalChars + (Math.random() * 2 - 1)));
+      bot.currentChars = Math.max(0, chars);
       if (chars >= bot.totalChars) {
-        forceBotFinish(room);
+        // the bot completed the target first — race over, bot wins
+        settleBot(room, true);
+        finishRace(room, 'finish');
       } else {
-        send(room.a.ws, { type: 'opponent', chars: Math.max(0, chars), done: false });
+        send(room.a.ws, { type: 'opponent', chars: bot.currentChars, done: false });
       }
     }, 350);
   };
+
+  // characters a side has actually typed (bots don't send progress pings,
+  // so their live position comes from the bot state, not liveChars)
+  const sideChars = (side) =>
+    side && side.bot ? Math.min(side.bot.currentChars, side.bot.totalChars) : (side ? side.liveChars || 0 : 0);
 
   const finishRace = (room, reason, loserSide) => {
     if (!room || room.state !== 'racing') return;
@@ -133,11 +162,17 @@ export function createRaceWs(server) {
     clearRoomTimers(room);
     stopBot(room);
     const { a, b } = room;
+    if (b.bot && !b.stats) settleBot(room, false); // fill the bot's partial stats for the result
     let aWon;
     if (reason === 'timeout') {
-      aWon = (a.liveChars || 0) >= (b.liveChars || 0);
+      aWon = sideChars(a) >= sideChars(b);
     } else if (reason === 'quit') {
       aWon = loserSide !== 'a';
+    } else if (a.done && !b.done) {
+      // the human finished first — bot is frozen mid-run, never "finished"
+      aWon = true;
+    } else if (b.done && !a.done) {
+      aWon = false;
     } else {
       aWon = a.finishedAt <= b.finishedAt;
     }
@@ -145,18 +180,20 @@ export function createRaceWs(server) {
       type: 'result',
       winner: aWon ? 'you' : 'opp',
       you: { stats: a.stats, done: a.done },
-      opp: { stats: b.stats, done: b.done, name: b.bot ? b.bot.name : 'OPERATOR', bot: Boolean(b.bot) },
+      opp: { stats: b.stats, done: b.done, name: b.bot ? b.bot.name : 'RIVAL', bot: Boolean(b.bot) },
       reason,
       code: room.code
     });
-    send(b.ws, {
-      type: 'result',
-      winner: aWon ? 'opp' : 'you',
-      you: { stats: b.stats, done: b.done },
-      opp: { stats: a.stats, done: a.done, name: 'CREATOR', bot: false },
-      reason,
-      code: room.code
-    });
+    if (b.ws) {
+      send(b.ws, {
+        type: 'result',
+        winner: aWon ? 'opp' : 'you',
+        you: { stats: b.stats, done: b.done },
+        opp: { stats: a.stats, done: a.done, name: 'RIVAL', bot: false },
+        reason,
+        code: room.code
+      });
+    }
     // finished rooms stop accepting joins and are pruned shortly after
     setTimeout(() => {
       if (rooms.get(room.code) === room && room.state === 'done') rooms.delete(room.code);
@@ -175,7 +212,7 @@ export function createRaceWs(server) {
       snippet: room.snippet,
       durationSec: room.config.durationSec,
       strict: room.config.strict,
-      opp: { name: room.b.bot ? room.b.bot.name : 'OPERATOR', bot: Boolean(room.b.bot) }
+      opp: { name: room.b.bot ? room.b.bot.name : 'RIVAL', bot: Boolean(room.b.bot) }
     };
     send(room.a.ws, payload);
     send(room.b.ws, payload);
@@ -327,12 +364,12 @@ export function createRaceWs(server) {
         mine.done = true;
         mine.stats = sanitizeStats(msg.stats);
         mine.finishedAt = Date.now();
-        if (opp.bot && !opp.done) {
-          opp.bot.catchup = setTimeout(() => forceBotFinish(room), 2000);
-        } else {
-          sendOpp(room, side, { type: 'opponent', chars: mine.liveChars || Number(msg.chars) || 0, done: true });
-        }
-        if (opp.done) finishRace(room, 'finish');
+        // FIRST TO FINISH wins — the race settles the instant anyone
+        // finishes. The opponent is frozen exactly where they are (their
+        // real progress, never a fake 100% "finished").
+        if (opp.bot && !opp.done) settleBot(room, false);
+        sendOpp(room, side, { type: 'opponent', chars: mine.liveChars || Number(msg.chars) || 0, done: true });
+        finishRace(room, 'finish');
       }
     });
     ws.on('close', () => dropPlayer(ws));

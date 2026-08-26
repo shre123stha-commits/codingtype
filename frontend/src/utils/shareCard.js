@@ -1,4 +1,4 @@
-const PALETTES = {
+export const PALETTES = {
   obsidian: {
     bg: '#0b0f19',
     panel: '#0f172a',

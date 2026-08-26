@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useGameStore } from '../store/gameStore.js';
+import { getRaceRecord, saveRaceRecord } from '../utils/raceRecord.js';
 
 function wsUrl() {
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -17,8 +18,13 @@ export function useRace() {
   const [raceStartAt, setRaceStartAt] = useState(0);
   const [joinError, setJoinError] = useState(null); // 'invalid' | 'full'
   const [errorMsg, setErrorMsg] = useState('');
+  const [record, setRecord] = useState(() => getRaceRecord()); // career { w, l }
   const socketRef = useRef(null);
   const stateRef = useRef('idle');
+  // performance-curve samples: { t (race seconds), me, opp }
+  const progressRef = useRef([]);
+  const oppCharsRef = useRef(0);
+  const raceStartRef = useRef(0);
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -34,6 +40,13 @@ export function useRace() {
       socketRef.current = null;
     }
     useGameStore.getState().lockInput(false);
+  }, []);
+
+  const pushSample = useCallback(() => {
+    const arr = progressRef.current;
+    const t = Math.max(0, Math.round(((Date.now() - raceStartRef.current) / 100) * 10) / 10);
+    arr.push({ t, me: useGameStore.getState().pointer, opp: oppCharsRef.current });
+    if (arr.length > 800) arr.splice(0, arr.length - 800);
   }, []);
 
   const ensureSocket = useCallback(() => {
@@ -56,9 +69,11 @@ export function useRace() {
         }
         setRoom({ ...msg.room, isCreator: true });
         setOppChars(0);
+        oppCharsRef.current = 0;
         setOppDone(false);
         setResult(null);
         setJoinError(null);
+        progressRef.current = [];
         setState('waiting');
       } else if (msg.type === 'joinResult') {
         if (!msg.ok) {
@@ -70,8 +85,10 @@ export function useRace() {
         setJoinError(null);
         setRoom({ ...msg.room, isCreator: false });
         setOppChars(0);
+        oppCharsRef.current = 0;
         setOppDone(false);
         setResult(null);
+        progressRef.current = [];
         setState('waiting');
       } else if (msg.type === 'lobby') {
         setRoom((r) => (r ? { ...r, opp: msg.room.opp, expiresAt: msg.room.expiresAt } : r));
@@ -90,15 +107,21 @@ export function useRace() {
         }));
         setCountdownAt(msg.at);
         setRaceStartAt(msg.at);
+        raceStartRef.current = msg.at;
+        progressRef.current = [];
         setOppChars(0);
+        oppCharsRef.current = 0;
         setOppDone(false);
         setResult(null);
         setState('countdown');
       } else if (msg.type === 'opponent') {
-        setOppChars(msg.chars || 0);
+        const chars = msg.chars || 0;
+        oppCharsRef.current = chars;
+        setOppChars(chars);
         setOppDone(Boolean(msg.done));
       } else if (msg.type === 'result') {
         useGameStore.getState().lockInput(false);
+        pushSample();
         setResult(msg);
         setState('done');
       } else if (msg.type === 'roomClosed') {
@@ -132,7 +155,17 @@ export function useRace() {
       }
     };
     return ws;
-  }, [state]);
+  }, [pushSample, state]);
+
+  // career record: count each settled race once
+  useEffect(() => {
+    if (!result) return;
+    const rec = getRaceRecord();
+    if (result.winner === 'you') rec.w += 1;
+    else rec.l += 1;
+    saveRaceRecord(rec);
+    setRecord(rec);
+  }, [result]);
 
   const createRace = useCallback(
     (config) => {
@@ -177,10 +210,12 @@ export function useRace() {
     cleanup();
     setRoom(null);
     setOppChars(0);
+    oppCharsRef.current = 0;
     setOppDone(false);
     setResult(null);
     setJoinError(null);
     setErrorMsg('');
+    progressRef.current = [];
     setState('idle');
   }, [cleanup]);
 
@@ -195,24 +230,21 @@ export function useRace() {
 
   useEffect(() => {
     if (state !== 'racing') return;
-    const id = setInterval(() => {
-      const ws = socketRef.current;
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'progress', chars: useGameStore.getState().pointer }));
-      }
-    }, 250);
+    pushSample();
+    const id = setInterval(pushSample, 250);
     return () => clearInterval(id);
-  }, [state]);
+  }, [state, pushSample]);
 
   const status = useGameStore((s) => s.status);
   const lastRun = useGameStore((s) => s.lastRun);
   useEffect(() => {
     if (state !== 'racing' || status !== 'finished' || !lastRun) return;
     const ws = socketRef.current;
+    pushSample();
     if (ws && ws.readyState === 1) {
       ws.send(JSON.stringify({ type: 'finish', stats: lastRun.stats, chars: lastRun.stats.chars }));
     }
-  }, [state, status, lastRun]);
+  }, [state, status, lastRun, pushSample]);
 
   useEffect(
     () => () => {
@@ -221,5 +253,5 @@ export function useRace() {
     [cleanup]
   );
 
-  return { state, room, oppChars, oppDone, result, countdownAt, raceStartAt, joinError, errorMsg, createRace, joinRace, leave };
+  return { state, room, oppChars, oppDone, result, countdownAt, raceStartAt, joinError, errorMsg, record, progressRef, createRace, joinRace, leave };
 }
