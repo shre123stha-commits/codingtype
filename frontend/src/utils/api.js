@@ -1,7 +1,35 @@
-async function request(path, options) {
-  const res = await fetch(path, options);
-  if (!res.ok) throw new Error(`api ${res.status}`);
-  return res.json();
+const REQUEST_TIMEOUT_MS = 10000;
+
+import { supabase } from './supabase.js';
+
+// When signed in, tag every API call with the Supabase JWT so the backend
+// reads/writes that user's cloud data instead of the local file.
+async function authHeaders() {
+  if (!supabase) return {};
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session ? { Authorization: `Bearer ${data.session.access_token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+// Hard timeout: a hung proxy (API process died mid-request) must never leave
+// the UI stuck on "SYNCING…" — fail fast, fall back to local, self-heal later.
+async function request(path, options = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(path, {
+      ...options,
+      headers: { ...(await authHeaders()), ...(options.headers || {}) },
+      signal: ctrl.signal
+    });
+    if (!res.ok) throw new Error(`api ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export const api = {
@@ -47,6 +75,9 @@ export const api = {
   },
   async pbest(snippetId) {
     return request(`/api/sessions/pbest/${encodeURIComponent(snippetId)}`);
+  },
+  async pbestSnippets() {
+    return request('/api/sessions/pbest-snippets');
   },
   async daily() {
     return request('/api/daily');

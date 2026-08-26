@@ -72,6 +72,7 @@ export const useGameStore = create((set, get) => ({
   catalog: [],
   catalogSource: 'loading',
   apiOnline: false,
+  authUser: null, // signed-in email, or null = guest (local data)
   uiOpen: false,
   theme: initialTheme(),
 
@@ -83,6 +84,7 @@ export const useGameStore = create((set, get) => ({
   blind: null,
 
   view: 'train',
+  deckTab: 'daily',
   inputLocked: false,
   raceGhost: null,
 
@@ -96,6 +98,9 @@ export const useGameStore = create((set, get) => ({
   },
   setApiOnline(v) {
     set({ apiOnline: v });
+  },
+  setAuthUser(v) {
+    set({ authUser: v });
   },
   setUiOpen(v) {
     set({ uiOpen: v });
@@ -130,6 +135,9 @@ export const useGameStore = create((set, get) => ({
   setView(v) {
     set({ view: v });
   },
+  setDeckTab(v) {
+    set({ deckTab: v });
+  },
   cycleBlind() {
     const next = get().blind === null ? 3 : get().blind === 3 ? 0 : null;
     set({ blind: next });
@@ -141,9 +149,23 @@ export const useGameStore = create((set, get) => ({
     set({ raceGhost: g });
   },
 
-  loadSnippet(raw) {
-    const snippet = prepareSnippet(raw);
+  // raw may be a full snippet (with .code) or a catalog summary (no code).
+  // Summaries fetch their code on demand so the catalog stays light.
+  async loadSnippet(raw) {
+    let full = raw;
+    if (full && !full.code && full.id) {
+      try {
+        const res = await fetch(`/api/snippets/${encodeURIComponent(full.id)}`);
+        if (!res.ok) throw new Error('snippet fetch failed');
+        full = await res.json();
+      } catch {
+        return null;
+      }
+    }
+    if (!full || !full.code) return null;
+    const snippet = prepareSnippet(full);
     set({ snippet, status: 'idle', ...freshSession() });
+    return snippet;
   },
 
   restart() {

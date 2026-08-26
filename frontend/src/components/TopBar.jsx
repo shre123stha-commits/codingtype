@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import AuthMenu from './AuthMenu.jsx';
 import { useGameStore } from '../store/gameStore.js';
 import { THEME_META } from '../utils/themes.js';
 
@@ -108,7 +109,126 @@ function ViewTabs() {
           {label}
         </button>
       ))}
+      <FeaturesMenu />
     </nav>
+  );
+}
+
+const FEATURES = [
+  {
+    view: 'train',
+    area: 'TRAIN',
+    items: [
+      ['DAILY CHALLENGE', 'daily', 'same target for everyone each day · streak + leaderboard'],
+      ['DRILL CATEGORIES', 'drill', 'ALGO · REAL-REPO · SPRINT · INTERVIEW × 6 languages'],
+      ['TARGET DROPS', 'target', 'every target for your language, one click to load'],
+      ['IMPORT CODE', 'import', 'paste a file or GitHub URL, type the code you actually write'],
+      ['AI MICRO-DRILL', 'aidrill', '15-sec drill auto-built from your 3 worst symbols'],
+      ['BLIND MODE', 'flags', 'type with a 3-char reveal window, or fully blind'],
+      ['GHOST PAIRS', 'flags', 'closing brackets pre-rendered as you type openers']
+    ]
+  },
+  {
+    view: 'race',
+    area: 'RACE',
+    items: [
+      ['1V1 QUICK RACE', null, 'sync start, live progress bars, winner screen — a bot fills in if no human'],
+      ['GHOST RACE', null, 'race your personal best, replayed keystroke by keystroke']
+    ]
+  },
+  {
+    view: 'analytics',
+    area: 'ANALYTICS',
+    items: [
+      ['KEY HEATMAP', null, 'your error rate per key, QWERTY map'],
+      ['FINGER STRENGTH', null, 'per-finger accuracy + weakest/strongest callout'],
+      ['VELOCITY TREND', null, 'WPM / CPM / accuracy across your last runs'],
+      ['SESSION LOG + PBs', null, 'history and personal bests per mode/language'],
+      ['SHARE CARD', null, 'one-click PNG of your run for X / Discord / LinkedIn']
+    ]
+  }
+];
+
+function FeaturesMenu() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const setView = useGameStore((s) => s.setView);
+  const setDeckTab = useGameStore((s) => s.setDeckTab);
+  const setUiOpen = useGameStore((s) => s.setUiOpen);
+
+  useEffect(() => {
+    if (!open) return;
+    setUiOpen(true);
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      setUiOpen(false);
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }, [open, setUiOpen]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`chip !px-2.5 !py-1 !text-[10px] ${open ? 'chip-on-cyan' : 'chip-off'}`}
+      >
+        ✦ FEATURES
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="features"
+          className="absolute left-0 top-[calc(100%+6px)] z-30 w-[560px] max-w-[92vw] border border-edge bg-panel shadow-lg shadow-black/40"
+        >
+          <div className="grid grid-cols-1 gap-0 sm:grid-cols-3">
+            {FEATURES.map((group) => (
+              <div key={group.area} className="border-b border-edge/60 p-3 sm:border-b-0 sm:border-r sm:last:border-r-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setView(group.view);
+                    setOpen(false);
+                  }}
+                  className="mb-2 block w-full text-left text-[10px] font-bold tracking-[0.22em] text-accent hover:underline"
+                >
+                  → {group.area}
+                </button>
+                <ul className="space-y-1">
+                  {group.items.map(([name, tab, desc]) => (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (tab) setDeckTab(tab);
+                          setView(group.view);
+                          setOpen(false);
+                        }}
+                        className="block w-full rounded-sm px-1 py-0.5 text-left text-[9px] leading-snug hover:bg-accent/10"
+                        title={`open ${group.view}`}
+                      >
+                        <span className="font-semibold tracking-[0.08em] text-ink">{name} →</span>
+                        <span className="block text-faint">{desc}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -157,6 +277,7 @@ export default function TopBar() {
       )}
 
       <div className="flex items-center gap-3">
+        <AuthMenu />
         <ThemeMenu />
 
         <span

@@ -42,8 +42,8 @@ export default function KeyHeatmap({ chars }) {
           COMPLETE RUNS TO BUILD YOUR MAP
         </div>
       ) : (
-        <div className="flex flex-col gap-4 md:flex-row">
-          <div className="flex-1 space-y-1.5">
+        <div className="flex min-w-0 flex-col gap-4 md:flex-row">
+          <div className="min-w-0 flex-1 space-y-1.5">
             {ROWS.map((row, ri) => (
               <div key={ri} className="flex gap-1.5">
                 {row.map((ch) => {
@@ -52,7 +52,7 @@ export default function KeyHeatmap({ chars }) {
                     <span
                       key={ch}
                       title={`${ch} — ${e} errors`}
-                      className="flex h-9 min-w-[30px] flex-1 items-center justify-center border border-edge bg-panel2 text-[13px] font-bold text-ink"
+                      className="flex h-9 min-w-0 flex-1 items-center justify-center overflow-hidden border border-edge bg-panel2 text-[13px] font-bold text-ink"
                       style={{
                         background: `rgb(var(--c-blood) / ${Math.min(0.75, rate * 0.9)})`,
                         color: rate > 0.25 ? '#fff' : undefined

@@ -2,8 +2,17 @@ import { Router } from 'express';
 
 import { fingerOf } from '../../../shared/fingers.js';
 import { db } from '../store/fileStore.js';
+import { storeFor } from '../store/supaStore.js';
 
 const router = Router();
+
+// Express 4 doesn't catch rejected promises from async handlers — wrap them
+const ah = (fn) => (req, res) => {
+  Promise.resolve(fn(req, res)).catch((err) => {
+    console.error('[codetype-api] handler error', err);
+    if (!res.headersSent) res.status(502).json({ error: 'store_error' });
+  });
+};
 
 function sanitizeCharStats(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
@@ -50,23 +59,25 @@ function sessionShape(payload) {
   return row;
 }
 
-router.post('/', (req, res) => {
+router.post('/', ah(async (req, res) => {
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ error: 'invalid_payload' });
   }
   const row = sessionShape(req.body);
-  db.addSession(row);
-  res.status(201).json({ id: row.id, createdAt: row.createdAt });
-});
+  const store = await storeFor(req);
+  await store.insert(row);
+  res.status(201).json({ id: row.id, createdAt: row.createdAt, store: store.kind });
+}));
 
-router.get('/', (req, res) => {
+router.get('/', ah(async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 20, 100);
-  res.json({ sessions: db.list(limit) });
-});
+  const rows = await (await storeFor(req)).all();
+  res.json({ sessions: rows.slice(0, limit) });
+}));
 
-router.get('/keystats', (req, res) => {
+router.get('/keystats', ah(async (req, res) => {
   const chars = {};
-  for (const s of db.all()) {
+  for (const s of await (await storeFor(req)).all()) {
     for (const [ch, v] of Object.entries(s.charStats || {})) {
       const cur = chars[ch] || { t: 0, e: 0 };
       cur.t += Number(v.t) || 0;
@@ -75,11 +86,11 @@ router.get('/keystats', (req, res) => {
     }
   }
   res.json({ chars });
-});
+}));
 
-router.get('/fingerstats', (req, res) => {
+router.get('/fingerstats', ah(async (req, res) => {
   const fingers = {};
-  for (const s of db.all()) {
+  for (const s of await (await storeFor(req)).all()) {
     for (const [ch, v] of Object.entries(s.charStats || {})) {
       const f = fingerOf(ch);
       if (!f) continue;
@@ -90,12 +101,11 @@ router.get('/fingerstats', (req, res) => {
     }
   }
   res.json({ fingers });
-});
+}));
 
-router.get('/benchmark/:snippetId', (req, res) => {
+router.get('/benchmark/:snippetId', ah(async (req, res) => {
   const id = String(req.params.snippetId).slice(0, 80);
-  const times = db
-    .all()
+  const times = (await (await storeFor(req)).all())
     .filter((s) => s.snippetId === id && s.timeSec > 0)
     .map((s) => s.timeSec)
     .sort((a, b) => a - b);
@@ -105,12 +115,12 @@ router.get('/benchmark/:snippetId', (req, res) => {
     best: Math.round(times[0] * 10) / 10,
     count: times.length
   });
-});
+}));
 
-router.get('/pbest/:snippetId', (req, res) => {
+router.get('/pbest/:snippetId', ah(async (req, res) => {
   const id = String(req.params.snippetId).slice(0, 80);
   let best = null;
-  for (const s of db.all()) {
+  for (const s of await (await storeFor(req)).all()) {
     if (s.snippetId !== id || !Array.isArray(s.charTimes) || !s.charTimes.length || !s.timeSec) continue;
     if (!best || s.timeSec < best.timeSec) best = s;
   }
@@ -122,12 +132,34 @@ router.get('/pbest/:snippetId', (req, res) => {
     charTimes: best.charTimes,
     createdAt: best.createdAt
   });
-});
+}));
 
-router.get('/pbests', (req, res) => {
+router.get('/pbest-snippets', ah(async (req, res) => {
+  const best = new Map();
+  for (const s of await (await storeFor(req)).all()) {
+    if (!s.snippetId || s.snippetId === 'unknown' || !Array.isArray(s.charTimes) || !s.charTimes.length || !s.timeSec) continue;
+    const cur = best.get(s.snippetId);
+    if (!cur || s.timeSec < cur.timeSec) {
+      best.set(s.snippetId, {
+        snippetId: s.snippetId,
+        title: s.snippetTitle,
+        source: s.snippetSource,
+        mode: s.mode,
+        language: s.language,
+        wpm: s.wpm,
+        timeSec: s.timeSec,
+        accuracy: s.accuracy,
+        createdAt: s.createdAt
+      });
+    }
+  }
+  res.json({ snippets: [...best.values()].sort((a, b) => b.createdAt - a.createdAt) });
+}));
+
+router.get('/pbests', ah(async (req, res) => {
   const { mode, language } = req.query;
   const best = new Map();
-  for (const s of db.all()) {
+  for (const s of await (await storeFor(req)).all()) {
     if (mode && s.mode !== mode) continue;
     if (language && s.language !== language) continue;
     const key = `${s.mode}|${s.language}`;
@@ -146,10 +178,10 @@ router.get('/pbests', (req, res) => {
     }
   }
   res.json({ pbests: [...best.values()].sort((a, b) => b.wpm - a.wpm) });
-});
+}));
 
-router.get('/summary', (req, res) => {
-  const all = db.all();
+router.get('/summary', ah(async (req, res) => {
+  const all = await (await storeFor(req)).all();
   const total = all.length;
   const avgWpm = total ? Math.round(all.reduce((sum, s) => sum + s.wpm, 0) / total) : 0;
   const totalErrors = all.reduce((sum, s) => sum + s.errors, 0);
@@ -177,6 +209,6 @@ router.get('/summary', (req, res) => {
     totalErrors,
     topFriction: friction
   });
-});
+}));
 
 export default router;

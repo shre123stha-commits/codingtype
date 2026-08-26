@@ -41,9 +41,9 @@ export default function TrendChart({ sessions, theme }) {
               }}
               labelStyle={{ color: pal.tick }}
             />
-            <Line yAxisId="right" type="monotone" dataKey="cpm" name="CPM" stroke={pal.cpm} strokeDasharray="4 3" dot={false} strokeWidth={1.5} />
-            <Line yAxisId="left" type="monotone" dataKey="wpm" name="WPM" stroke={pal.wpm} dot={false} strokeWidth={2} />
-            <Line yAxisId="left" type="monotone" dataKey="accuracy" name="ACC%" stroke={pal.burst} dot={false} strokeWidth={1.5} />
+            <Line yAxisId="right" type="monotone" dataKey="cpm" name="CPM" stroke={pal.cpm} strokeDasharray="4 3" dot={data.length < 3 ? { r: 3, fill: pal.cpm } : false} strokeWidth={1.5} />
+            <Line yAxisId="left" type="monotone" dataKey="wpm" name="WPM" stroke={pal.wpm} dot={data.length < 3 ? { r: 3, fill: pal.wpm } : false} strokeWidth={2} />
+            <Line yAxisId="left" type="monotone" dataKey="accuracy" name="ACC%" stroke={pal.burst} dot={data.length < 3 ? { r: 3, fill: pal.burst } : false} strokeWidth={1.5} />
           </LineChart>
         </ResponsiveContainer>
       </div>

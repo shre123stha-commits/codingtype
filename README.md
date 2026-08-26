@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # CODETYPE // Dev-Tuned Typing Telemetry
 
 A production-ready, developer-focused typing trainer — a specialized alternative to Monkeytype,
@@ -8,10 +7,11 @@ Tactical cyber-HUD aesthetic: obsidian slate (`#0b0f19` / `#0f172a`), structural
 JetBrains Mono everywhere, neon amber (`#FACC15`) + cyan (`#38bdf8`) accents, corner crosshairs,
 grid-dot backgrounds, and glowing status badges.
 
-**v1.1.0** — three top-level tabs (`TRAIN` / `RACE` / `ANALYTICS`), daily challenge + streak,
+**v1.2.0** — three top-level tabs (`TRAIN` / `RACE` / `ANALYTICS`), daily challenge + streak,
 adaptive micro-drills, ghost races, blind mode, import-your-own-code, interview sprints with
-median benchmark, real 1v1 WebSocket races, share cards, and a full analytics suite
-(key heatmap, finger-strength, velocity trend).
+median benchmark, real 1v1 WebSocket races **with bot fallback**, share cards, a full analytics
+suite (key heatmap, finger-strength, velocity trend), a tab-rail control deck, a `✦ FEATURES`
+index in the top bar, and a 78-target snippet repo.
 
 ---
 
@@ -36,6 +36,40 @@ npm run dev          # starts API :3001 and web :5173 (Vite proxies /api + ws)
 If the API is down the frontend degrades gracefully: it serves the bundled copy of the snippet
 repo (top bar shows `API LINK: LOCAL`) and disables session persistence, daily, and races.
 
+## Accounts + cloud sync (optional, Supabase)
+
+Out of the box CodeType is 100% local: **no account, no external service, no key needed** — all
+runs are saved to `backend/data/db.json` on this machine and the site works fully offline
+(degraded). Everything still works if you never touch Supabase.
+
+To turn on **login/signup + per-user cloud storage** (so a user's sessions, PBs, heatmap,
+finger stats, benchmark and daily streak follow their account across devices, and the daily
+leaderboard becomes global):
+
+1. Create a free project at https://supabase.com.
+2. Run `supabase/schema.sql` **once** in **SQL Editor → New query** (creates the `sessions`
+   table + row-level-security so each user can only see their own rows).
+3. From **Project Settings → API**, copy the **Project URL** and the **anon / public key**,
+   and put the same pair in **two** files:
+   - `frontend/.env` → `VITE_SUPABASE_URL=…` and `VITE_SUPABASE_ANON_KEY=…`
+   - `backend/.env` → `SUPABASE_URL=…` and `SUPABASE_ANON_KEY=…`
+   (`.env.example` in each folder shows the exact lines. The anon key is safe for the browser —
+   RLS is what enforces per-user isolation. Do **not** put the `service_role` key anywhere.)
+4. Restart both processes. The top-right now shows **⊕ SIGN IN**; `GET /api/health` reports
+   `"supabase":"on"`.
+
+How it behaves:
+- **Guest (no login):** unchanged — data stays in the local file, no auth UI is sent along.
+- **Signed in:** the frontend attaches the Supabase JWT to every `/api/*` call
+   (`Authorization: Bearer …`); the backend verifies it and reads/writes that user's Supabase
+   `sessions` rows instead of the local file. Sign out and it falls back to local again.
+- **Bad/expired token or Supabase unreachable:** the backend silently falls back to the local
+  file so the site never breaks.
+
+The anon key is a public credential; all real protection comes from the RLS policies in
+`schema.sql`. If you'd rather skip the confirmation email on signup, toggle
+**Authentication → Providers → Email → Confirm email** off in the dashboard.
+
 ## Information architecture
 
 Everything lives under **three top-level tabs** in the top bar; no feature floats free.
@@ -44,33 +78,51 @@ Everything lives under **three top-level tabs** in the top bar; no feature float
 Single screen, three columns: **Control Deck** (left), **Typing Arena + Live HUD** (center),
 **Post-run Diagnostics** (right/bottom after a run).
 
-The Control Deck is a numbered deck — every control in its own section:
+The Control Deck has a **left tab rail** (01–07) — one section on screen at a time, nothing
+stacked:
 
-| # | Section | Controls |
-|---|---------|----------|
-| 01 | DAILY CHALLENGE | one fixed snippet for everyone per date, `RUN DAILY`, streak badge, "same target for everyone today" note |
-| 02 | DRILL CATEGORY | `ALGO` / `REAL-REPO` / `SPRINT` / `INTVIEW` chips |
-| 03 | LANGUAGE | PY / JS / JAVA / CPP / RUST / SQL |
-| 04 | TARGETS | target list (loaded badge, char/line counts), `SHUFFLE TARGET` |
-| 05 | IMPORT CODE | paste your own code **or** a GitHub blob URL → `LOAD AS TARGET` |
-| 06 | AI MICRO-DRILL | `GENERATE DRILL` — top-3 error symbols from your history → 55-char drill |
-| 07 | MODES & FLAGS | `STRICT`/`NATURAL`, `GHOST PAIRS` on/off, `INDENT ASSIST` on/off, `BLIND` 3-state (off → 3-ch window → fully blind) |
+| # | Tab | Contents |
+|---|-----|----------|
+| 01 | DAILY | today's challenge — title, source, **code preview**, `RUN DAILY`, streak, "same target for everyone today" |
+| 02 | DRILL | `ALGO` / `REAL-REPO` / `SPRINT` / `INTERVIEW` chips + blurb |
+| 03 | LANG | PY / JS / JAVA / CPP / RUST / SQL |
+| 04 | TARGET | **dropdown of every target for the language** (13, mode-badged, char counts) + `SHUFFLE TARGET` + `RESET SESSION` |
+| 05 | IMPORT | paste your own code **or** a GitHub blob URL → `LOAD AS TARGET` |
+| 06 | AI | `GENERATE DRILL` — top-3 error symbols from your history → 55-char drill |
+| 07 | FLAGS | `STRICT`/`NATURAL`, `GHOST PAIRS` on/off, `INDENT ASSIST` on/off, `BLIND` 3-state (off → 3-ch window → fully blind) |
 
-Top bar: target readout, THEMES dropdown (4 themes), API LINK status, version.
+Top bar: target readout, **✦ FEATURES** dropdown (full feature index grouped by TRAIN / RACE /
+ANALYTICS — every entry is a button that navigates straight to its view *and* sub-tab,
+e.g. `AI MICRO-DRILL →` opens TRAIN on the 06 AI tab), THEMES dropdown (4 themes),
+API LINK status, version.
 After finishing a run the arena swaps to the **Diagnostic Dashboard**: velocity chart,
 symbol friction matrix, stutter timeline, line blame, share card, ghost-benchmark, daily-complete
 badge, and (interview mode) the YOU / MEDIAN / BEST benchmark bar.
 
 ### 2 — RACE
-1v1 races over a real WebSocket — no HTTP polling:
+Two race types, always both visible, over a real WebSocket — no HTTP polling:
 
-- **RACE LOBBY** panel — status (`WAITING FOR RIVAL` / `FULL — SYNC IN FLIGHT` / `TIMEOUT`),
-  `FIND MATCH` / `FORFEIT`, race-log of the last 5 connections.
-- **RACE TRACK** — two side-by-side progress bars (YOU / RIVAL) with live char counts.
-- Synced 3-2-1-GO countdown, both players get the **same daily snippet**.
-- Winner screen (`VICTORY` / `DEFEAT`, wpm/acc of both sides), reason: `finish` or `quit`.
-- Also hosts **GHOST RACE** (your past self) from the TRAIN diagnostics: the green
-  ghost caret replays your personal-best keystroke-by-keystroke on the same target.
+- **GHOST RACE** card — race your past self. Lists every snippet you have a personal
+  best on (`GET /api/sessions/pbest-snippets`); pick one → it loads into the arena and
+  the green ghost caret replays your PB keystroke-by-keystroke. No practice data yet
+  (first visit)? It says so: *"do a practice session in TRAIN first — your best run
+  becomes your ghost."*
+- **1V1 QUICK RACE** card — a 2-slot **code lobby**:
+  - `⚔ CREATE RACE` → pick target (language → snippet), duration (first-to-finish /
+    30 / 60 / 90 s), mode (strict / natural), bot fallback on/off → a **random 6-digit
+    code** is generated and shown with a live `CODE EXPIRES IN MM:SS` countdown.
+    Codes are unique, random on every creation, and valid **15 minutes** only.
+  - `⊕ JOIN RACE` → enter a 6-digit code. Valid code + 1 person in the lobby → you join
+    and both players get the synced start. Wrong/expired code → `INVALID CODE — CHECK
+    AND RE-ENTER` (re-enter right there). Two people already → `LOBBY IS FULL (2/2)`.
+  - Solo lobby + bot fallback on → a **CT-BOT** fills the second slot after 8 s.
+  - `✕ CANCEL RACE` (waiting) / `✕ FORFEIT` (live) — the rival is settled
+    (`result.reason = 'quit'`, quitter loses).
+- **RACE TRACK** — two side-by-side progress bars (YOU / RIVAL) with live char counts,
+  plus a countdown clock for timed races (winner = most chars when time runs out).
+- Synced 4-3-2-1-GO start; both players always get the **exact same snippet**.
+- Winner screen (`VICTORY` / `DEFEAT`), reason: `finish` / `quit` / `timeout`;
+  race log keeps the last 5 results.
 
 ### 3 — ANALYTICS
 Four panels, all fed by the session store:
@@ -124,8 +176,15 @@ Four panels, all fed by the session store:
 - **Share cards** — the diagnostics header renders a 1000×560 PNG on a canvas
   (`utils/shareCard.js`): theme-matched palette, WPM hero, 6 stat cells, top-5 friction bars,
   corner crosshairs. `⤓ SHARE PNG` downloads; `⧉ COPY IMG` writes to the clipboard.
-- **Real 1v1 races** — `ws` server on the same HTTP port; single global lobby, 2 slots,
-  90s fill timeout, synced start, live progress, winner = first `finishedAt`.
+- **Real 1v1 races** — `ws` server on the same HTTP port; **per-code 2-slot lobbies**:
+  creating a race mints a **random 6-digit code** (unique, valid 15 min, expires on its own),
+  a second player joins by entering the code, synced start, live progress, winner = first
+  `finishedAt` (timed races: most chars at the bell). **No human in 8s? A bot fills the
+  slot** (240–420 CPM pace, labeled `CT-BOT-n`) so quick races always start; if you finish
+  first the bot catches up ~2s later so the result screen is snappy.
+- **Ghost race picker** — `GET /api/sessions/pbest-snippets` returns one row per snippet
+  you have a PB on (title, wpm, timeSec, accuracy); the RACE tab lists them so you can
+  race your past self on any target, or shows a "practice first" hint on first visit.
 - **Key heatmap + finger strength** — per-key and per-finger accuracy from persisted
   `charStats` (char → finger via `shared/fingers.js`); rendered in ANALYTICS.
 
@@ -134,7 +193,7 @@ Four panels, all fed by the session store:
 - **Algorithm** — quick sort, binary search, BFS, Dijkstra, Kahn, Union-Find, SQL windows.
 - **Real-repo** — production-shaped blocks with real file paths (Express, Spring, Axum, ECS…).
 - **Interview** — timed DSA blocks with canonical problem names.
-- 6 languages × 4 categories = **60 targets** (queryable via `/api/snippets/meta`).
+- 6 languages × 4 categories = **78 targets** (13 per language; queryable via `/api/snippets/meta`).
 
 ### Tokenization (`utils/tokenizer.js`, `utils/snippetEngine.js`)
 Prism → **per-character class array** (not a flat string): exact syntax highlighting,
@@ -163,7 +222,8 @@ GET  /api/snippets/:id             full snippet + code
 POST /api/sessions                 persist a completed run
 GET  /api/sessions?limit           recent runs
 GET  /api/sessions/pbests          personal bests (query: mode, language)
-GET  /api/sessions/pbest/:id       personal best for one snippet
+GET  /api/sessions/pbest-snippets  one PB row per snippet you've practiced (ghost picker)
+GET  /api/sessions/pbest/:id       personal best for one snippet (404 `no_pb` if none)
 GET  /api/sessions/summary         aggregate telemetry + top friction symbols
 GET  /api/sessions/keystats        per-char {t,e} totals (key heatmap feed)
 GET  /api/sessions/fingerstats     per-finger {t,e} totals (finger panel feed)
@@ -174,27 +234,36 @@ GET  /api/drills/adaptive          top-3 error symbols + suggested drill payload
 
 ### WebSocket race protocol (`ws` on the API port, path `/api/ws`)
 
-Single global lobby, 2 slots. Messages are JSON.
+Room-based: each race is a **room** keyed by a random 6-digit `code`. Creator takes slot `a`,
+joiner (or bot) slot `b`. Rooms live 15 min from creation, then expire
+(`roomClosed {reason:'expired'}`). If the creator enabled bot fallback and no human joins
+within 8 s, a bot takes slot `b` and the race auto-starts. When a joiner is present the race
+auto-starts ~1.2 s after the join. Messages are JSON.
 
 Client → server:
 
 | Message | Payload | Effect |
 |---------|---------|--------|
-| `join` | `{}` | take a free slot; lobby re-announced |
-| `leave` | `{}` | vacate slot; opponent gets `result` (reason `quit`) if race live |
+| `create` | `{snippetId, durationSec: 0\|30\|60\|90, strict, botAllowed}` | mint a room + random 6-digit code; reply `createResult` |
+| `join` | `{code}` | enter that room; reply `joinResult {ok, reason?: invalid\|full}` |
+| `leave` | `{}` | vacate slot; waiting room destroyed if creator, opponent gets `result` (reason `quit`) if race live |
 | `progress` | `{chars}` | live char count, broadcast to opponent |
-| `finish` | `{stats, chars}` | record `finishedAt`; winner = earliest finisher |
+| `finish` | `{stats, chars}` | record `finishedAt`; winner = earliest finisher (timed: most chars at bell) |
 
 Server → client:
 
 | Message | Payload | Meaning |
 |---------|---------|---------|
-| `lobby` | `{state: waiting\|full\|timeout, you, opp}` | current lobby state |
-| `start` | `{at, date, snippet}` | both clients get the same daily snippet; start at `at` (now+4s) |
+| `createResult` | `{ok, code, room}` | room minted; `room` = code/state/snippet summary/durationSec/strict/expiresAt/opp |
+| `joinResult` | `{ok, code, reason?}` | `invalid` = unknown/expired/finished code, `full` = 2 players already in |
+| `lobby` | `{room}` | current room state (opponent joined/left) |
+| `start` | `{at, code, snippet, durationSec, strict, opp:{name,bot}}` | both clients get the same full snippet; start at `at` (now+4s) |
 | `opponent` | `{chars, done}` | rival's live progress |
-| `result` | `{winner: you\|opp, you, opp, reason: finish\|quit}` | race over |
+| `result` | `{winner: you\|opp, you:{stats,done}, opp:{stats,done,name,bot}, reason: finish\|quit\|timeout, code}` | race over; quitter always loses |
+| `roomClosed` | `{code, reason: expired\|closed}` | room gone (expired, or host cancelled while waiting) |
 
-30s heartbeat ping/pong; 90s lobby fill timeout; Vite proxies `/api/ws` with `ws: true`.
+30 s heartbeat ping/pong; finished rooms are pruned 5 s after the result; Vite proxies
+`/api/ws` with `ws: true`.
 
 ---
 
@@ -213,8 +282,8 @@ hazard; pause sync or move the project off the synced path.
 
 ## Extension points
 
-- **Multi-lobby races** — the lobby is global today; key `createRaceWs` rooms by `roomId`
-  in the `join` payload to shard.
+- **Matchmaking / ranked ladder** — the code-lobby protocol already shards rooms per race;
+  add a ranked queue on top (ELO from `result` payloads).
 - **Team leaderboards** — sessions already carry mode/language/snippetId + charTimes;
   group by user id once auth exists.
 - **More drill patterns** — add symbol → template rows to `utils/adaptiveDrill.js` PATTERNS.
@@ -224,32 +293,38 @@ hazard; pause sync or move the project off the synced path.
 ```
 codetype/
 ├── shared/
-│   ├── snippets.js               # canonical snippet repo (60 targets)
+│   ├── snippets.js               # canonical snippet repo (78 targets)
 │   ├── fingers.js                # char → finger map (heatmap/finger panel)
 │   └── daily.js                  # date-stable daily snippet picker
+├── supabase/
+│   └── schema.sql                # one-time Supabase setup (sessions table + RLS)
 ├── backend/
 │   ├── server.js                 # express app + ws race server + route mounts
+│   ├── .env.example              # SUPABASE_URL / SUPABASE_ANON_KEY (optional)
 │   ├── src/
-│   │   ├── ws/race.js            # lobby state machine
+│   │   ├── env.js                # tiny .env loader (real env wins)
+│   │   ├── ws/race.js            # code-lobby room state machine
 │   │   ├── routes/snippets.js
 │   │   ├── routes/sessions.js    # runs + PBs + benchmark + keystats + fingerstats
 │   │   ├── routes/daily.js       # daily snippet + streak + leaderboard
 │   │   ├── routes/drills.js      # adaptive drill feed
-│   │   ├── store/fileStore.js    # atomic JSON persistence
+│   │   ├── store/fileStore.js    # atomic JSON persistence (local fallback)
+│   │   ├── store/supaStore.js    # per-request store router: local vs Supabase (JWT)
 │   │   └── middleware/error.js
 │   └── data/db.json              # local DB (created at runtime)
 └── frontend/
     ├── vite.config.js            # host 0.0.0.0, allowedHosts, /api + ws proxy
     ├── tailwind.config.js        # design tokens
+    ├── .env.example              # VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (optional)
     └── src/
-        ├── store/gameStore.js    # zustand engine: keys, modes, telemetry, views
-        ├── hooks/                # key matrix, ticker, api, race (ws client)
+        ├── store/gameStore.js    # zustand engine: keys, modes, telemetry, views, authUser
+        ├── hooks/                # key matrix, ticker, api, race (ws client), useAuth
         ├── utils/                # tokenizer, snippet prep, metrics, symbols, api,
-        │                         # ghostRace, adaptiveDrill, shareCard, themes
-        └── components/           # TopBar, TrainView, RaceView, AnalyticsView,
-                                  # ModeDeck, LiveHud, TypingArena, LineRow,
-                                  # DiagnosticDashboard, VelocityChart, SymbolMatrix,
-                                  # StutterTimeline, HistoryPanel, FrictionPreview,
+        │                         # supabase (client), ghostRace, adaptiveDrill, shareCard, themes
+        └── components/           # TopBar (incl. AuthMenu sign in/up + account menu),
+                                  # TrainView, RaceView, AnalyticsView, ModeDeck, LiveHud,
+                                  # TypingArena, LineRow, DiagnosticDashboard, VelocityChart,
+                                  # SymbolMatrix, StutterTimeline, HistoryPanel, FrictionPreview,
                                   # KeyHeatmap, FingerPanel, TrendChart, BenchmarkBar,
                                   # ShareCard, ImportPanel, AdaptivePanel, RestartButton
 ```
@@ -269,9 +344,5 @@ codetype/
 
 ```bash
 node scripts/smoke.mjs             # 35 engine asserts (headless, no browser)
-node scripts/verify-features.mjs   # 25-check E2E incl. full 2-player ws race (Playwright)
+node scripts/verify-features.mjs   # 41-check E2E incl. full 2-player code-lobby ws race (Playwright)
 ```
-=======
-# codetype
-A website for to practice touch typing through code 
->>>>>>> 57554139a67450843fa874c764947f3f66eeb3fe

@@ -1177,5 +1177,497 @@ FROM (
   FROM logins
 ) d
 GROUP BY user_id, grp;`
+  },
+  {
+    id: 'py-alg-03',
+    language: 'python',
+    mode: 'algorithm',
+    title: 'Fibonacci (Iterative)',
+    source: 'algorithms/fibonacci.py',
+    code: `def fib(n):
+    if n <= 1:
+        return n
+    a, b = 0, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+    return b
+
+
+def fib_stream(limit):
+    a, b = 0, 1
+    out = []
+    while a <= limit:
+        out.append(a)
+        a, b = b, a + b
+    return out`
+  },
+  {
+    id: 'py-alg-04',
+    language: 'python',
+    mode: 'algorithm',
+    title: 'Container (Two Pointers)',
+    source: 'algorithms/two_pointers.py',
+    code: `def max_area(height):
+    left, right = 0, len(height) - 1
+    best = 0
+    while left < right:
+        width = right - left
+        area = min(height[left], height[right]) * width
+        best = max(best, area)
+        if height[left] < height[right]:
+            left += 1
+        else:
+            right -= 1
+    return best`
+  },
+  {
+    id: 'py-repo-03',
+    language: 'python',
+    mode: 'repo',
+    title: 'FastAPI Router',
+    source: 'src/api/users.py',
+    code: `from fastapi import APIRouter, HTTPException
+
+from ..models.user import UserCreate, UserOut
+from ..store.users import get_user, save_user
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.post("", response_model=UserOut, status_code=201)
+def create_user(payload: UserCreate):
+    user = save_user(payload)
+    return UserOut(**user)
+
+
+@router.get("/{user_id}", response_model=UserOut)
+def read_user(user_id: str):
+    user = get_user(user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="user not found")
+    return UserOut(**user)`
+  },
+  {
+    id: 'js-alg-03',
+    language: 'javascript',
+    mode: 'algorithm',
+    title: 'Longest Substring',
+    source: 'algorithms/longestSubstring.js',
+    code: `function longestSubstring(s) {
+  const last = new Map();
+  let start = 0;
+  let best = 0;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (last.has(ch) && last.get(ch) >= start) {
+      start = last.get(ch) + 1;
+    }
+    last.set(ch, i);
+    best = Math.max(best, i - start + 1);
+  }
+  return best;
+}`
+  },
+  {
+    id: 'js-alg-04',
+    language: 'javascript',
+    mode: 'algorithm',
+    title: 'LRU Cache',
+    source: 'algorithms/lruCache.js',
+    code: `class LRUCache {
+  constructor(capacity) {
+    this.cap = capacity;
+    this.map = new Map();
+  }
+  get(key) {
+    if (!this.map.has(key)) return -1;
+    const val = this.map.get(key);
+    this.map.delete(key);
+    this.map.set(key, val);
+    return val;
+  }
+  put(key, value) {
+    if (this.map.has(key)) this.map.delete(key);
+    this.map.set(key, value);
+    if (this.map.size > this.cap) {
+      const oldest = this.map.keys().next().value;
+      this.map.delete(oldest);
+    }
+  }
+}`
+  },
+  {
+    id: 'js-repo-03',
+    language: 'javascript',
+    mode: 'repo',
+    title: 'Hooks: useDebounce + useSearch',
+    source: 'src/hooks/useDebounce.js',
+    code: `import { useEffect, useState } from 'react';
+
+export function useDebounce(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+export function useSearch(query, fetchResults) {
+  const term = useDebounce(query, 250);
+  const [results, setResults] = useState([]);
+  useEffect(() => {
+    if (!term.trim()) return setResults([]);
+    let live = true;
+    fetchResults(term).then((rows) => {
+      if (live) setResults(rows);
+    });
+    return () => { live = false; };
+  }, [term, fetchResults]);
+  return results;
+}`
+  },
+  {
+    id: 'java-alg-03',
+    language: 'java',
+    mode: 'algorithm',
+    title: 'Top K (Min-Heap)',
+    source: 'algorithms/TopK.java',
+    code: `import java.util.PriorityQueue;
+
+public class TopK {
+    public int[] topK(int[] nums, int k) {
+        PriorityQueue<Integer> heap = new PriorityQueue<>();
+        for (int n : nums) {
+            heap.offer(n);
+            if (heap.size() > k) heap.poll();
+        }
+        int[] out = new int[heap.size()];
+        for (int i = heap.size() - 1; i >= 0; i--) out[i] = heap.poll();
+        return out;
+    }
+}`
+  },
+  {
+    id: 'java-alg-04',
+    language: 'java',
+    mode: 'algorithm',
+    title: 'Grid BFS (Shortest Path)',
+    source: 'algorithms/GridBfs.java',
+    code: `import java.util.ArrayDeque;
+import java.util.Queue;
+
+public class GridBfs {
+    private static final int[][] DIRS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+    public int shortestPath(char[][] grid) {
+        int rows = grid.length, cols = grid[0].length;
+        Queue<int[]> queue = new ArrayDeque<>();
+        boolean[][] seen = new boolean[rows][cols];
+        queue.offer(new int[]{0, 0});
+        seen[0][0] = true;
+        int steps = 0;
+        while (!queue.isEmpty()) {
+            int size = queue.size();
+            for (int s = 0; s < size; s++) {
+                int[] cell = queue.poll();
+                if (cell[0] == rows - 1 && cell[1] == cols - 1) return steps;
+                for (int[] d : DIRS) {
+                    int r = cell[0] + d[0], c = cell[1] + d[1];
+                    if (r >= 0 && c >= 0 && r < rows && c < cols
+                            && grid[r][c] == '0' && !seen[r][c]) {
+                        seen[r][c] = true;
+                        queue.offer(new int[]{r, c});
+                    }
+                }
+            }
+            steps++;
+        }
+        return -1;
+    }
+}`
+  },
+  {
+    id: 'java-repo-03',
+    language: 'java',
+    mode: 'repo',
+    title: 'Spring Order Service',
+    source: 'com/acme/service/OrderService.java',
+    code: `package com.acme.service;
+
+import com.acme.model.Order;
+import com.acme.repo.OrderRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class OrderService {
+
+    private final OrderRepository orders;
+    private final InventoryClient inventory;
+
+    public OrderService(OrderRepository orders, InventoryClient inventory) {
+        this.orders = orders;
+        this.inventory = inventory;
+    }
+
+    @Transactional
+    public Order place(String userId, List<LineItem> lines) {
+        Order order = Order.forUser(userId, lines);
+        inventory.reserve(order.items());
+        return orders.save(order);
+    }
+
+    public Optional<Order> find(String id) {
+        return orders.findById(id);
+    }
+}`
+  },
+  {
+    id: 'cpp-alg-03',
+    language: 'c++',
+    mode: 'algorithm',
+    title: 'Sliding Window Max',
+    source: 'algorithms/sliding_window.cpp',
+    code: `#include <deque>
+#include <vector>
+
+std::vector<int> slidingMax(const std::vector<int>& a, int k) {
+    std::vector<int> out;
+    std::deque<int> dq;
+    for (int i = 0; i < (int)a.size(); i++) {
+        while (!dq.empty() && dq.front() <= i - k) dq.pop_front();
+        while (!dq.empty() && a[dq.back()] <= a[i]) dq.pop_back();
+        dq.push_back(i);
+        if (i >= k - 1) out.push_back(a[dq.front()]);
+    }
+    return out;
+}`
+  },
+  {
+    id: 'cpp-alg-04',
+    language: 'c++',
+    mode: 'algorithm',
+    title: 'Merge Intervals',
+    source: 'algorithms/merge_intervals.cpp',
+    code: `#include <algorithm>
+#include <utility>
+#include <vector>
+
+std::vector<std::pair<int, int>> merge(
+        std::vector<std::pair<int, int>>& iv) {
+    std::sort(iv.begin(), iv.end());
+    std::vector<std::pair<int, int>> out;
+    for (const auto& cur : iv) {
+        if (out.empty() || out.back().second < cur.first) {
+            out.push_back(cur);
+        } else {
+            out.back().second = std::max(out.back().second, cur.second);
+        }
+    }
+    return out;
+}`
+  },
+  {
+    id: 'cpp-repo-03',
+    language: 'c++',
+    mode: 'repo',
+    title: 'Thread Pool',
+    source: 'sys/thread_pool.cpp',
+    code: `#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <vector>
+
+class ThreadPool {
+public:
+    explicit ThreadPool(int n) {
+        for (int i = 0; i < n; i++) {
+            workers.emplace_back([this] {
+                for (;;) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lk(mu);
+                        cv.wait(lk, [this] { return stop || !jobs.empty(); });
+                        if (stop && jobs.empty()) return;
+                        task = std::move(jobs.front());
+                        jobs.pop();
+                    }
+                    task();
+                }
+            });
+        }
+    }
+
+    void post(std::function<void()> fn) {
+        { std::lock_guard<std::mutex> lk(mu); jobs.push(std::move(fn)); }
+        cv.notify_one();
+    }
+
+    ~ThreadPool() {
+        stop = true;
+        cv.notify_all();
+        for (auto& w : workers) w.join();
+    }
+
+private:
+    std::vector<std::thread> workers;
+    std::queue<std::function<void()>> jobs;
+    std::mutex mu;
+    std::condition_variable cv;
+    bool stop = false;
+};`
+  },
+  {
+    id: 'rs-alg-03',
+    language: 'rust',
+    mode: 'algorithm',
+    title: 'Min Window (Two Pointers)',
+    source: 'algorithms/sliding_window.rs',
+    code: `pub fn min_window_len(s: &str, t: &str) -> usize {
+    let mut need: std::collections::HashMap<char, i32> = t.chars().collect();
+    let mut have = 0usize;
+    let required = need.len();
+    let chars: Vec<char> = s.chars().collect();
+    let (mut left, mut best) = (0usize, usize::MAX);
+    for right in 0..chars.len() {
+        let ch = chars[right];
+        if let Some(cnt) = need.get_mut(&ch) {
+            *cnt -= 1;
+            if *cnt >= 0 { have += 1; }
+        }
+        while have == required {
+            best = best.min(right - left + 1);
+            let lc = chars[left];
+            if let Some(cnt) = need.get_mut(&lc) {
+                *cnt += 1;
+                if *cnt > 0 { have -= 1; }
+            }
+            left += 1;
+        }
+    }
+    if best == usize::MAX { 0 } else { best }
+}`
+  },
+  {
+    id: 'rs-alg-04',
+    language: 'rust',
+    mode: 'algorithm',
+    title: 'Product Except Self',
+    source: 'algorithms/product_except.rs',
+    code: `pub fn product_except_self(nums: &[i64]) -> Vec<i64> {
+    let n = nums.len();
+    let mut out = vec![1i64; n];
+    let mut left = 1i64;
+    for i in 0..n {
+        out[i] = left;
+        left *= nums[i];
+    }
+    let mut right = 1i64;
+    for i in (0..n).rev() {
+        out[i] *= right;
+        right *= nums[i];
+    }
+    out
+}`
+  },
+  {
+    id: 'rs-repo-03',
+    language: 'rust',
+    mode: 'repo',
+    title: 'Tokio Worker',
+    source: 'src/worker.rs',
+    code: `use tokio::sync::mpsc;
+
+pub struct Job {
+    pub id: u64,
+    pub payload: String,
+}
+
+pub async fn run_worker(mut rx: mpsc::Receiver<Job>) {
+    while let Some(job) = rx.recv().await {
+        let out = process(job.payload.as_str()).await;
+        log::info!(job_id = job.id, "processed {}", out);
+    }
+}
+
+async fn process(input: &str) -> u32 {
+    input.parse::<u32>().map(|v| v * 2).unwrap_or(0)
+}
+
+pub fn new_worker(rx: mpsc::Receiver<Job>) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move { run_worker(rx).await })
+}`
+  },
+  {
+    id: 'sql-alg-03',
+    language: 'sql',
+    mode: 'algorithm',
+    title: 'Second Highest Salary',
+    source: 'algorithms/second_highest.sql',
+    code: `SELECT salary AS second_highest
+FROM employees
+ORDER BY salary DESC
+LIMIT 1 OFFSET 1;
+
+-- window variant
+SELECT DISTINCT salary
+FROM (
+    SELECT salary,
+           DENSE_RANK() OVER (ORDER BY salary DESC) AS rk
+    FROM employees
+) ranked
+WHERE rk = 2;`
+  },
+  {
+    id: 'sql-alg-04',
+    language: 'sql',
+    mode: 'algorithm',
+    title: 'Report Headers (Window)',
+    source: 'algorithms/report_headers.sql',
+    code: `SELECT
+    region,
+    product,
+    qty,
+    CASE
+        WHEN ROW_NUMBER() OVER (PARTITION BY region ORDER BY qty DESC) = 1
+            THEN region
+        ELSE NULL
+    END AS region_header
+FROM sales
+ORDER BY region, qty DESC;`
+  },
+  {
+    id: 'sql-repo-03',
+    language: 'sql',
+    mode: 'repo',
+    title: 'Audit Trigger + Cleanup',
+    source: 'ops/audit_cleanup.sql',
+    code: `CREATE TABLE order_audit (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    change TEXT NOT NULL
+);
+
+CREATE FUNCTION log_order_change() RETURNS trigger AS $$
+BEGIN
+    INSERT INTO order_audit (order_id, change)
+    VALUES (NEW.id, 'updated: total=' || NEW.total);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_order_audit
+AFTER UPDATE ON orders
+FOR EACH ROW EXECUTE FUNCTION log_order_change();
+
+DELETE FROM order_audit
+WHERE changed_at < now() - interval '90 days';`
   }
 ];

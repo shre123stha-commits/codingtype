@@ -6,6 +6,10 @@ import { useGameStore } from '../store/gameStore.js';
 
 const MODE_LABEL = { algorithm: 'ALG', repo: 'REPO', sprint: 'SPR', interview: 'INT' };
 
+// module-scoped: must survive tab switches (unmount/remount) so a finished
+// run is persisted exactly once even under StrictMode's double effect run
+const postedRunIds = new Set();
+
 function fmtTime(ts) {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -35,6 +39,8 @@ export default function HistoryPanel({ limit = 12 }) {
 
   useEffect(() => {
     if (!apiOnline || !lastRun) return;
+    if (postedRunIds.has(lastRun.id)) return;
+    postedRunIds.add(lastRun.id);
     api
       .saveSession(lastRun)
       .catch(() => {})

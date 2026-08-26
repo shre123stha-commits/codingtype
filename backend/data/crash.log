@@ -1,0 +1,26 @@
+
+[2026-08-26T08:01:15.803Z] uncaughtException
+TypeError: taken.has is not a function
+    at randomCode (file:///home/user/codetype/backend/src/ws/race.js:26:16)
+    at handleCreate (file:///home/user/codetype/backend/src/ws/race.js:238:18)
+    at WebSocket.<anonymous> (file:///home/user/codetype/backend/src/ws/race.js:293:9)
+    at WebSocket.emit (node:events:524:28)
+    at Receiver.receiverOnMessage (/home/user/codetype/backend/node_modules/ws/lib/websocket.js:1239:20)
+    at Receiver.emit (node:events:524:28)
+    at Receiver.dataMessage (/home/user/codetype/backend/node_modules/ws/lib/receiver.js:633:14)
+    at Receiver.getData (/home/user/codetype/backend/node_modules/ws/lib/receiver.js:532:10)
+    at Receiver.startLoop (/home/user/codetype/backend/node_modules/ws/lib/receiver.js:190:16)
+    at Receiver._write (/home/user/codetype/backend/node_modules/ws/lib/receiver.js:117:10)
+
+[2026-08-26T08:02:35.234Z] uncaughtException
+TypeError: taken.has is not a function
+    at randomCode (file:///home/user/codetype/backend/src/ws/race.js:26:16)
+    at handleCreate (file:///home/user/codetype/backend/src/ws/race.js:238:18)
+    at WebSocket.<anonymous> (file:///home/user/codetype/backend/src/ws/race.js:293:9)
+    at WebSocket.emit (node:events:524:28)
+    at Receiver.receiverOnMessage (/home/user/codetype/backend/node_modules/ws/lib/websocket.js:1239:20)
+    at Receiver.emit (node:events:524:28)
+    at Receiver.dataMessage (/home/user/codetype/backend/node_modules/ws/lib/receiver.js:633:14)
+    at Receiver.getData (/home/user/codetype/backend/node_modules/ws/lib/receiver.js:532:10)
+    at Receiver.startLoop (/home/user/codetype/backend/node_modules/ws/lib/receiver.js:190:16)
+    at Receiver._write (/home/user/codetype/backend/node_modules/ws/lib/receiver.js:117:10)

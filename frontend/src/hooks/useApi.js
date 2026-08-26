@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../utils/api.js';
 import { SNIPPETS } from '../data/snippets.js';
@@ -7,13 +7,50 @@ import { useGameStore } from '../store/gameStore.js';
 
 export function useDaily() {
   const [data, setData] = useState(null);
+  const dataRef = useRef(null);
+  dataRef.current = data;
   const refresh = useCallback(() => {
-    api.daily().then(setData).catch(() => {});
+    api
+      .daily()
+      .then(setData)
+      .catch(() => {
+        /* keep whatever we had; self-heal below retries until the API is back */
+      });
+  }, []);
+  // initial fetch + self-heal: while no data is on screen, retry every 5s
+  // (page loaded while the API was down must NOT stick on "SYNCING…")
+  useEffect(() => {
+    if (data) return;
+    refresh();
+    const id = setInterval(() => {
+      if (dataRef.current) clearInterval(id);
+      else refresh();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [data, refresh]);
+  // re-fetch the moment a run completes so streak / finished-so-far update live
+  // (delayed a beat so the session POST lands before we read the leaderboard)
+  const lastRunId = useGameStore((s) => s.lastRun?.id);
+  useEffect(() => {
+    if (!lastRunId) return;
+    const id = setTimeout(refresh, 1500);
+    return () => clearTimeout(id);
+  }, [lastRunId, refresh]);
+  return data;
+}
+
+export function usePbestSnippets() {
+  const [snippets, setSnippets] = useState(null);
+  const refresh = useCallback(() => {
+    api
+      .pbestSnippets()
+      .then((d) => setSnippets(d.snippets))
+      .catch(() => setSnippets([]));
   }, []);
   useEffect(() => {
     refresh();
   }, [refresh]);
-  return data;
+  return snippets;
 }
 
 export function useAnalytics() {
@@ -62,31 +99,55 @@ export function useGhost() {
   }, [snippetId, lastRunId, setRaceGhost]);
 }
 
+function summarizeLocal(s) {
+  return {
+    id: s.id,
+    language: s.language,
+    mode: s.mode,
+    title: s.title,
+    source: s.source,
+    chars: s.code.length,
+    lines: s.code.split('\n').length,
+    friction: (s.code.match(/[{}[\];.,:=<>!&|+\-*\/]/g) || []).length,
+    code: s.code // local mode keeps the code inline so typing works offline
+  };
+}
+
 export function useCatalog() {
   const setCatalog = useGameStore((s) => s.setCatalog);
   const setApiOnline = useGameStore((s) => s.setApiOnline);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+
+    const load = async () => {
       try {
         await api.health();
         const res = await api.snippets();
         if (!cancelled) {
-          const full = await Promise.all(res.snippets.map((meta) => api.snippet(meta.id)));
-          setCatalog(full, 'api');
+          setCatalog(res.snippets, 'api');
           setApiOnline(true);
-          return;
+          return true;
         }
+        return false;
       } catch {
         if (!cancelled) {
-          setCatalog(SNIPPETS, 'local');
+          setCatalog(SNIPPETS.map(summarizeLocal), 'local');
           setApiOnline(false);
         }
+        return false;
       }
-    })();
+    };
+
+    load();
+    // self-heal: if we booted offline, retry the API link every 5s (offline only —
+    // no polling load while healthy)
+    const id = setInterval(() => {
+      if (!cancelled && useGameStore.getState().catalogSource === 'local') load();
+    }, 5000);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, [setCatalog, setApiOnline]);
 }

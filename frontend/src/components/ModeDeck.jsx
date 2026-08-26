@@ -25,14 +25,21 @@ const LANGS = [
 
 const BLIND_LABEL = { 3: 'BLIND: 3 CH', 0: 'BLIND: FULL' };
 
-function Section({ index, title, children }) {
+const TABS = [
+  { id: 'daily', num: '01', label: 'DAILY', title: 'DAILY CHALLENGE' },
+  { id: 'drill', num: '02', label: 'DRILL', title: 'DRILL CATEGORY' },
+  { id: 'lang', num: '03', label: 'LANG', title: 'LANGUAGE' },
+  { id: 'target', num: '04', label: 'TARGET', title: 'TARGETS' },
+  { id: 'import', num: '05', label: 'IMPORT', title: 'IMPORT CODE' },
+  { id: 'aidrill', num: '06', label: 'AI', title: 'AI MICRO-DRILL' },
+  { id: 'flags', num: '07', label: 'FLAGS', title: 'MODES & FLAGS' }
+];
+
+function SectionTitle({ num, title }) {
   return (
-    <div className="border-b border-edge/70 px-4 py-3 last:border-b-0">
-      <div className="hud-label mb-2.5">
-        <span className="mr-1.5 text-accent/70">{index}</span>
-        {title}
-      </div>
-      {children}
+    <div className="hud-label mb-2.5">
+      <span className="mr-1.5 text-accent/70">{num}</span>
+      {title}
     </div>
   );
 }
@@ -49,6 +56,18 @@ function ToggleRow({ label, active, onToggle, accent = 'amber' }) {
       {label}
     </button>
   );
+}
+
+function useClickOutside(ref, onOutside) {
+  useEffect(() => {
+    const onClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onOutside();
+    };
+    // 'click' (not 'pointerdown'): the target dropdown is in-flow, so closing
+    // it on pointerdown would reflow the deck mid-gesture and steal the click.
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, [ref, onOutside]);
 }
 
 export default function ModeDeck() {
@@ -70,11 +89,19 @@ export default function ModeDeck() {
   const status = useGameStore((s) => s.status);
   const snippet = useGameStore((s) => s.snippet);
   const daily = useDaily();
-  const [dailyBusy, setDailyBusy] = useState(false);
+  const tab = useGameStore((s) => s.deckTab);
+  const setTab = useGameStore((s) => s.setDeckTab);
+  const [targetOpen, setTargetOpen] = useState(false);
+  const targetRef = useRef(null);
+  useClickOutside(targetRef, () => setTargetOpen(false));
 
+  const langTargets = useMemo(
+    () => catalog.filter((s) => s.language === language),
+    [catalog, language]
+  );
   const filtered = useMemo(
-    () => catalog.filter((s) => s.mode === mode && s.language === language),
-    [catalog, mode, language]
+    () => langTargets.filter((s) => s.mode === mode),
+    [langTargets, mode]
   );
 
   const prevFilter = useRef(null);
@@ -94,13 +121,48 @@ export default function ModeDeck() {
     if (pick) loadSnippet(pick);
   };
 
+  const pickTarget = (s) => {
+    setTargetOpen(false);
+    if (s.mode !== mode) setMode(s.mode);
+    loadSnippet(s);
+  };
+
   const dailySnippetObj = daily ? catalog.find((s) => s.id === daily.snippetId) || null : null;
   const dailyLoaded = snippet && snippet.id === dailySnippetObj?.id;
+  const [dailyFull, setDailyFull] = useState(null);
+
+  useEffect(() => {
+    if (!daily || !dailySnippetObj) {
+      setDailyFull(null);
+      return undefined;
+    }
+    if (dailySnippetObj.code) {
+      setDailyFull(dailySnippetObj);
+      return undefined;
+    }
+    let live = true;
+    fetch(`/api/snippets/${encodeURIComponent(daily.snippetId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (live && j) setDailyFull(j);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [daily, dailySnippetObj]);
+
+  const dailyPreview = useMemo(() => {
+    if (!dailyFull || !dailyFull.code) return '';
+    return dailyFull.code
+      .split('\n')
+      .slice(0, 5)
+      .map((l) => l.slice(0, 46))
+      .join('\n');
+  }, [dailyFull]);
   const runDaily = () => {
     if (!dailySnippetObj) return;
-    setDailyBusy(true);
-    loadSnippet({ ...dailySnippetObj, isDaily: true });
-    setDailyBusy(false);
+    loadSnippet({ ...dailyFull, ...dailySnippetObj, isDaily: true });
   };
 
   if (catalogSource === 'loading') {
@@ -113,191 +175,268 @@ export default function ModeDeck() {
     );
   }
 
+  const activeTab = TABS.find((t) => t.id === tab) || TABS[0];
+
   return (
-    <HudCard label="CONTROL DECK" right={<span className="hud-label">{filtered.length} TARGETS</span>}>
-      <Section index="01" title="DAILY CHALLENGE">
-        {daily && dailySnippetObj ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-[11px] font-semibold text-ink">{dailySnippetObj.source}</span>
-              <span className="shrink-0 border border-edge px-1.5 py-0.5 text-[9px] tracking-[0.14em] text-dim">
-                {daily.date}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={runDaily}
-                disabled={dailyBusy}
-                className={`chip flex-1 py-1.5 ${dailyLoaded ? 'chip-on-cyan' : 'chip-on-amber'}`}
-              >
-                {dailyLoaded ? '● LOADED' : '▶ RUN DAILY'}
-              </button>
-              <span
-                className={`shrink-0 border px-2 py-1 text-[9px] font-bold tracking-[0.14em] ${
-                  daily.streak > 0 ? 'border-accent/50 bg-accent/10 text-accent' : 'border-edge text-faint'
-                }`}
-                title="consecutive days completed"
-              >
-                🔥 {daily.streak} STREAK
-              </span>
-            </div>
-            <p className="text-[9px] leading-relaxed tracking-[0.06em] text-faint">
-              SAME TARGET FOR EVERYONE TODAY {daily.top.length ? `· ${daily.top.length} FINISHED SO FAR` : ''}
-            </p>
-          </div>
-        ) : (
-          <p className="text-[9px] tracking-[0.14em] text-faint">SYNCING DAILY TARGET…</p>
-        )}
-      </Section>
-
-      <Section index="02" title="DRILL CATEGORY">
-        <div className="grid grid-cols-2 gap-2">
-          {MODES.map((m) => (
+    <HudCard label="CONTROL DECK" right={<span className="hud-label">{langTargets.length} TARGETS</span>}>
+      <div className="flex items-stretch">
+        <nav className="flex w-14 shrink-0 flex-col self-start border-r border-edge/70" aria-label="control deck sections">
+          {TABS.map((t) => (
             <button
-              key={m}
+              key={t.id}
               type="button"
-              onClick={() => setMode(m)}
-              className={`chip ${mode === m ? 'chip-on-amber' : 'chip-off'}`}
+              onClick={() => {
+                setTargetOpen(false);
+                setTab(t.id);
+              }}
+              className={`flex h-11 shrink-0 flex-col items-center justify-center gap-0.5 border-b border-edge/40 last:border-b-0 ${
+                tab === t.id ? 'bg-accent/10 text-accent' : 'text-faint hover:bg-edge/30 hover:text-dim'
+              }`}
+              title={t.title}
             >
-              {MODE_META[m].label}
+              <span className="text-[8px] tabular-nums">{t.num}</span>
+              <span className="text-[8px] font-semibold tracking-[0.1em]">{t.label}</span>
             </button>
           ))}
-        </div>
-        <p className="mt-2 text-[10px] leading-relaxed text-faint">{MODE_META[mode].blurb}</p>
-      </Section>
+        </nav>
 
-      <Section index="03" title="LANGUAGE">
-        <div className="grid grid-cols-3 gap-2">
-          {LANGS.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              onClick={() => setLanguage(l.id)}
-              className={`chip ${language === l.id ? 'chip-on-cyan' : 'chip-off'}`}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-[10px] leading-relaxed text-faint">
-          Switching mode or language auto-deploys a fresh random target.
-        </p>
-      </Section>
+        <div className="min-w-0 flex-1 px-4 py-3">
+          {tab === 'daily' ? (
+            <>
+              <SectionTitle num="01" title={activeTab.title} />
+              {daily && dailySnippetObj ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[11px] font-semibold text-ink" title={dailySnippetObj.title}>
+                      {dailySnippetObj.title}
+                    </span>
+                    <span className="shrink-0 border border-edge px-1.5 py-0.5 text-[9px] tracking-[0.14em] text-dim">
+                      {daily.date}
+                    </span>
+                  </div>
+                  <div className="truncate text-[9px] tracking-wide text-dim" title={dailySnippetObj.source}>
+                    {dailySnippetObj.source}
+                  </div>
+                  {dailyPreview ? (
+                    <pre className="overflow-hidden border border-edge bg-black/10 p-2 text-[9px] leading-relaxed text-dim">
+                      {dailyPreview}
+                    </pre>
+                  ) : (
+                    <div className="border border-edge p-2 text-[9px] tracking-[0.14em] text-faint">
+                      SHOWING FULL CODE ON "RUN DAILY"
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={runDaily}
+                      className={`chip flex-1 py-1.5 ${dailyLoaded ? 'chip-on-cyan' : 'chip-on-amber'}`}
+                    >
+                      {dailyLoaded ? '● LOADED' : '▶ RUN DAILY'}
+                    </button>
+                    <span
+                      className={`shrink-0 border px-2 py-1 text-[9px] font-bold tracking-[0.14em] ${
+                        daily.streak > 0 ? 'border-accent/50 bg-accent/10 text-accent' : 'border-edge text-faint'
+                      }`}
+                      title="consecutive days completed"
+                    >
+                      🔥 {daily.streak}
+                    </span>
+                  </div>
+                  <p className="text-[9px] leading-relaxed tracking-[0.06em] text-faint">
+                    SAME TARGET FOR EVERYONE TODAY
+                    {daily.top.length ? ` · ${daily.top.length} FINISHED SO FAR` : ''}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[9px] tracking-[0.14em] text-faint">SYNCING DAILY TARGET…</p>
+              )}
+            </>
+          ) : null}
 
-      <Section index="04" title="TARGETS">
-        <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
-          {filtered.map((s) => {
-            const active = snippet && snippet.id === s.id && status !== 'finished';
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => loadSnippet(s)}
-                className={`w-full border px-3 py-2 text-left transition-colors ${
-                  active
-                    ? 'border-accent/60 bg-accent/5 shadow-glow-amber'
-                    : 'border-edge bg-transparent hover:border-edge2'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`truncate text-[11px] font-semibold ${active ? 'text-accent' : 'text-ink'}`}>
-                    {s.title}
-                  </span>
-                  <span
-                    className={`shrink-0 text-[9px] tracking-[0.14em] ${
-                      active ? 'font-bold text-accent' : 'text-faint'
-                    }`}
+          {tab === 'drill' ? (
+            <>
+              <SectionTitle num="02" title={activeTab.title} />
+              <div className="grid grid-cols-2 gap-2">
+                {MODES.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    className={`chip ${mode === m ? 'chip-on-amber' : 'chip-off'}`}
                   >
-                    {active ? '● LOADED' : s.mode === 'sprint' ? `~15s · ${s.chars} CH` : `${s.chars} CH`}
-                  </span>
-                </div>
-                <div className="mt-0.5 flex items-center justify-between gap-2">
-                  <span className="truncate text-[9px] tracking-wide text-dim">{s.source}</span>
-                  <span className="shrink-0 text-[9px] tabular-nums text-faint">{s.lines} L</span>
-                </div>
+                    {MODE_META[m].label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-faint">{MODE_META[mode].blurb}</p>
+            </>
+          ) : null}
+
+          {tab === 'lang' ? (
+            <>
+              <SectionTitle num="03" title={activeTab.title} />
+              <div className="grid grid-cols-3 gap-2">
+                {LANGS.map((l) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    onClick={() => setLanguage(l.id)}
+                    className={`chip ${language === l.id ? 'chip-on-cyan' : 'chip-off'}`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-faint">
+                Switching mode or language auto-deploys a fresh random target.
+              </p>
+            </>
+          ) : null}
+
+          {tab === 'target' ? (
+            <div ref={targetRef}>
+              <SectionTitle num="04" title={activeTab.title} />
+              <button
+                type="button"
+                onClick={() => setTargetOpen((v) => !v)}
+                className={`chip w-full ${targetOpen ? 'chip-on-amber' : 'chip-off'}`}
+                aria-expanded={targetOpen}
+              >
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {snippet ? snippet.title : 'SELECT TARGET…'}
+                </span>
+                <span className="ml-2 shrink-0 text-[9px]">{targetOpen ? '▲' : '▼'}</span>
               </button>
-            );
-          })}
-        </div>
-        <div className="mt-3 space-y-2">
-          <button
-            type="button"
-            onClick={shuffle}
-            disabled={!filtered.length}
-            className="chip chip-on-amber w-full py-2 text-[10px] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            ⇄ SHUFFLE TARGET
-          </button>
-          {status !== 'idle' ? (
-            <button
-              type="button"
-              onClick={() => useGameStore.getState().restart()}
-              className="chip chip-off w-full py-2 text-[10px]"
-            >
-              ↻ RESET SESSION
-            </button>
+              {targetOpen ? (
+                <div className="mt-2 max-h-60 overflow-y-auto border border-edge">
+                  {langTargets.map((s) => {
+                    const active = snippet && snippet.id === s.id && status !== 'finished';
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => pickTarget(s)}
+                        className={`flex w-full items-center gap-2 border-b border-edge/50 px-2.5 py-2 text-left last:border-b-0 ${
+                          active ? 'bg-accent/10' : 'hover:bg-edge/30'
+                        }`}
+                      >
+                        <span
+                          className={`w-14 shrink-0 text-center text-[8px] font-bold tracking-[0.08em] ${
+                            s.mode === 'sprint'
+                              ? 'border border-pulse/40 text-pulse'
+                              : s.mode === 'interview'
+                              ? 'border border-good/40 text-good'
+                              : 'border border-edge text-dim'
+                          }`}
+                        >
+                          {MODE_META[s.mode].label}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-[10px] text-ink" title={s.source}>
+                          {s.title}
+                        </span>
+                        <span className="shrink-0 text-[9px] tabular-nums text-faint">
+                          {s.mode === 'sprint' ? '~15s' : `${s.chars} CH`}
+                        </span>
+                        {active ? <span className="shrink-0 text-[9px] font-bold text-accent">●</span> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={shuffle}
+                  disabled={!filtered.length}
+                  className="chip chip-on-amber w-full py-2 text-[10px] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ⇄ SHUFFLE TARGET
+                </button>
+                {status !== 'idle' ? (
+                  <button
+                    type="button"
+                    onClick={() => useGameStore.getState().restart()}
+                    className="chip chip-off w-full py-2 text-[10px]"
+                  >
+                    ↻ RESET SESSION
+                  </button>
+                ) : null}
+              </div>
+              <p className="mt-2 text-[9px] leading-relaxed tracking-[0.06em] text-faint">
+                SHOWING ALL {langTargets.length} TARGETS IN {LANGS.find((l) => l.id === language)?.label || language.toUpperCase()} — CLICK TO LOAD.
+              </p>
+            </div>
+          ) : null}
+
+          {tab === 'import' ? (
+            <>
+              <SectionTitle num="05" title={activeTab.title} />
+              <ImportPanel />
+            </>
+          ) : null}
+
+          {tab === 'aidrill' ? (
+            <>
+              <SectionTitle num="06" title={activeTab.title} />
+              <AdaptivePanel />
+            </>
+          ) : null}
+
+          {tab === 'flags' ? (
+            <>
+              <SectionTitle num="07" title={activeTab.title} />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStrictMode(true)}
+                  className={`chip ${strictMode ? 'chip-on-amber' : 'chip-off'}`}
+                >
+                  STRICT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStrictMode(false)}
+                  className={`chip ${!strictMode ? 'chip-on-amber' : 'chip-off'}`}
+                >
+                  NATURAL
+                </button>
+              </div>
+              <p className="mb-2 mt-2 text-[10px] leading-relaxed text-faint">
+                {strictMode
+                  ? 'Blocked on errors — the correct key must land to advance.'
+                  : 'Flow preserved — errors render inline in soft red.'}
+              </p>
+              <div className="space-y-2">
+                <ToggleRow
+                  label="GHOST PAIRS"
+                  active={ghostMode}
+                  onToggle={() => setGhostMode(!ghostMode)}
+                  accent="cyan"
+                />
+                <ToggleRow
+                  label="INDENT ASSIST"
+                  active={indentAssist}
+                  onToggle={() => setIndentAssist(!indentAssist)}
+                  accent="cyan"
+                />
+                <button
+                  type="button"
+                  onClick={cycleBlind}
+                  className={`chip w-full text-left ${blind !== null ? 'chip-on-cyan' : 'chip-off'}`}
+                  title="delayed reveal — train typing without reading the screen"
+                >
+                  <span className="mr-2">{blind !== null ? 'ON' : 'OFF'}</span>
+                  {BLIND_LABEL[blind] || 'BLIND WINDOW'}
+                </button>
+              </div>
+              <p className="mt-2 text-[9px] leading-relaxed tracking-[0.06em] text-faint">
+                BLIND HIDES THE CODE AHEAD OF THE CARET (3 CH WINDOW, OR FULLY). GHOST PAIRS FAINT THE CLOSE BRACKET.
+              </p>
+            </>
           ) : null}
         </div>
-      </Section>
-
-      <Section index="05" title="IMPORT CODE">
-        <ImportPanel />
-      </Section>
-
-      <Section index="06" title="AI MICRO-DRILL">
-        <AdaptivePanel />
-      </Section>
-
-      <Section index="07" title="MODES & FLAGS">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setStrictMode(true)}
-            className={`chip ${strictMode ? 'chip-on-amber' : 'chip-off'}`}
-          >
-            STRICT
-          </button>
-          <button
-            type="button"
-            onClick={() => setStrictMode(false)}
-            className={`chip ${!strictMode ? 'chip-on-amber' : 'chip-off'}`}
-          >
-            NATURAL
-          </button>
-        </div>
-        <p className="mb-2 mt-2 text-[10px] leading-relaxed text-faint">
-          {strictMode
-            ? 'Blocked on errors — the correct key must land to advance.'
-            : 'Flow preserved — errors render inline in soft red.'}
-        </p>
-        <div className="space-y-2">
-          <ToggleRow
-            label="GHOST PAIRS"
-            active={ghostMode}
-            onToggle={() => setGhostMode(!ghostMode)}
-            accent="cyan"
-          />
-          <ToggleRow
-            label="INDENT ASSIST"
-            active={indentAssist}
-            onToggle={() => setIndentAssist(!indentAssist)}
-            accent="cyan"
-          />
-          <button
-            type="button"
-            onClick={cycleBlind}
-            className={`chip w-full text-left ${blind !== null ? 'chip-on-cyan' : 'chip-off'}`}
-            title="delayed reveal — train typing without reading the screen"
-          >
-            <span className="mr-2">{blind !== null ? 'ON' : 'OFF'}</span>
-            {BLIND_LABEL[blind] || 'BLIND WINDOW'}
-          </button>
-        </div>
-        <p className="mt-2 text-[9px] leading-relaxed tracking-[0.06em] text-faint">
-          BLIND HIDES THE CODE AHEAD OF THE CARET (3 CH WINDOW, OR FULLY). GHOST PAIRS FAINT THE CLOSE BRACKET.
-        </p>
-      </Section>
+      </div>
     </HudCard>
   );
 }
