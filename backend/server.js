@@ -1,15 +1,36 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+import './src/env.js'; // load backend/.env (SUPABASE_URL, SUPABASE_ANON_KEY, …) — real env wins
 import { errorHandler, notFound } from './src/middleware/error.js';
 import snippetsRouter from './src/routes/snippets.js';
 import sessionsRouter from './src/routes/sessions.js';
 import dailyRouter from './src/routes/daily.js';
 import drillsRouter from './src/routes/drills.js';
 import { createRaceWs } from './src/ws/race.js';
+import { supaConfigured } from './src/store/supaStore.js';
+
+// Crash guard: a single bad request must never take the API down silently.
+const here = path.dirname(fileURLToPath(import.meta.url));
+const crashLog = path.join(here, 'data', 'crash.log');
+const logCrash = (kind, err) => {
+  const entry = `\n[${new Date().toISOString()}] ${kind}\n${(err && err.stack) || err}\n`;
+  try {
+    fs.mkdirSync(path.dirname(crashLog), { recursive: true });
+    fs.appendFileSync(crashLog, entry);
+  } catch {
+    /* best effort */
+  }
+  console.error(entry);
+};
+process.on('uncaughtException', (err) => logCrash('uncaughtException', err));
+process.on('unhandledRejection', (err) => logCrash('unhandledRejection', err));
 
 const app = express();
-const API_VERSION = '1.1.0';
+const API_VERSION = '1.2.0';
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
@@ -32,13 +53,14 @@ app.get('/', (req, res) => {
       'GET /api/sessions/pbest/:snippetId': 'fastest run for a snippet (ghost race data)',
       'GET /api/daily': "today's challenge + streak + top runs",
       'GET /api/drills/adaptive': 'worst friction symbols for AI micro-drills',
-      'WS /api/ws': '1v1 race lobbies (join/start/progress/finish/result)'
+      'WS /api/ws': '1v1 race lobbies (create/join-by-code/start/progress/finish/result)',
+      'AUTH': 'optional Supabase accounts — send "Authorization: Bearer <jwt>" to read/write that user\'s cloud data; without it data stays local'
     }
   });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, service: 'codetype-api', version: API_VERSION, ts: Date.now() });
+  res.json({ ok: true, service: 'codetype-api', version: API_VERSION, supabase: supaConfigured ? 'on' : 'off', ts: Date.now() });
 });
 
 app.use('/api/snippets', snippetsRouter);

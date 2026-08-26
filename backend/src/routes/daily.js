@@ -1,9 +1,16 @@
 import { Router } from 'express';
 
 import { dailySnippet, todayStr } from '../../../shared/daily.js';
-import { db } from '../store/fileStore.js';
+import { storeFor } from '../store/supaStore.js';
 
 const router = Router();
+
+const ah = (fn) => (req, res) => {
+  Promise.resolve(fn(req, res)).catch((err) => {
+    console.error('[codetype-api] handler error', err);
+    if (!res.headersSent) res.status(502).json({ error: 'store_error' });
+  });
+};
 
 function localDate(ts) {
   const d = new Date(ts);
@@ -12,10 +19,10 @@ function localDate(ts) {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-router.get('/', (req, res) => {
+router.get('/', ah(async (req, res) => {
   const date = todayStr();
   const sn = dailySnippet(date);
-  const all = db.all();
+  const all = await (await storeFor(req)).all();
   const todayRuns = all.filter((s) => s.daily && s.snippetId === sn.id && localDate(s.createdAt) === date);
   const top = [...todayRuns]
     .sort((a, b) => b.wpm - a.wpm)
@@ -45,6 +52,6 @@ router.get('/', (req, res) => {
     myRuns: todayRuns.length,
     top
   });
-});
+}));
 
 export default router;
