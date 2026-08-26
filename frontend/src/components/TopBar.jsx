@@ -125,7 +125,8 @@ const FEATURES = [
       ['IMPORT CODE', 'import', 'paste a file or GitHub URL, type the code you actually write'],
       ['AI MICRO-DRILL', 'aidrill', '15-sec drill auto-built from your 3 worst symbols'],
       ['BLIND MODE', 'flags', 'type with a 3-char reveal window, or fully blind'],
-      ['GHOST PAIRS', 'flags', 'closing brackets pre-rendered as you type openers']
+      ['GHOST PAIRS', 'flags', 'closing brackets pre-rendered as you type openers'],
+      ['FLASH CARDS', 'flash', 'profile + race share cards — PNG, copy image, post to X']
     ]
   },
   {

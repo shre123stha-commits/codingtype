@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import FlashCardModal from './FlashCardModal.jsx';
 import HudCard from './HudCard.jsx';
 import TypingArena from './TypingArena.jsx';
-import { usePbestSnippets } from '../hooks/useApi.js';
+import { useDaily, usePbestSnippets } from '../hooks/useApi.js';
+import {
+  buildProfile,
+  profileShareText,
+  raceShareText,
+  renderProfileCard,
+  renderRaceCard,
+  renderResultCard
+} from '../utils/flashCard.js';
 import { useRace } from '../hooks/useRace.js';
 import { useTypingEngine } from '../hooks/useTypingEngine.js';
 import { api } from '../utils/api.js';
@@ -284,6 +293,82 @@ export default function RaceView() {
   const apiOnline = useGameStore((s) => s.apiOnline);
   const [panel, setPanel] = useState('menu'); // menu | create | join
   const [log, setLog] = useState([]);
+  const [card, setCard] = useState(null); // { title, canvas, text } — flash card modal
+  const theme = useGameStore((s) => s.theme);
+  const authUser = useGameStore((s) => s.authUser);
+  const lastRun = useGameStore((s) => s.lastRun);
+  const daily = useDaily();
+  const handle = (authUser ? String(authUser).split('@')[0] : 'GUEST').toUpperCase();
+
+  const openCard = (c) => setCard(c);
+
+  const openRaceCard = async () => {
+    const r = race.result;
+    if (!r) return;
+    const you = r.you?.stats;
+    const opp = r.opp?.stats;
+    const won = r.winner === 'you';
+    const accuracy = Math.round((you?.accuracy ?? 0) * 10) / 10;
+    const title = race.room?.snippet?.title || 'TARGET';
+    const canvas = await renderRaceCard(
+      {
+        won,
+        wpm: you?.wpm ?? '—',
+        accuracy,
+        rank: won ? '1ST' : '2ND',
+        title,
+        modeLabel: race.room?.durationSec ? `${race.room.durationSec}S SPRINT` : 'FIRST TO FINISH',
+        oppName: r.opp?.name || 'RIVAL',
+        oppDone: Boolean(r.opp?.done),
+        oppFinishT: opp?.timeSec ?? null,
+        keystrokes: lastRun?.stats?.chars || snippet?.charCount || 0,
+        errors: you?.errors ?? 0,
+        victories: race.record?.w ?? 0,
+        total: snippet?.charCount || 1,
+        progress: race.progressRef?.current || [],
+        yourFinishT: you?.timeSec ?? 0
+      },
+      theme
+    );
+    openCard({ title: 'RACE FLASH CARD', canvas, text: raceShareText({ won, wpm: you?.wpm ?? 0, accuracy, title, oppName: r.opp?.name || 'RIVAL', oppWpm: opp?.wpm ?? '—' }) });
+  };
+
+  const openProfileCard = async () => {
+    try {
+      const [d] = await Promise.all([api.sessions(500).then((res) => res.sessions).catch(() => [])]);
+      const profile = buildProfile({ sessions: d, authUser, streak: daily?.streak || 0 });
+      const canvas = await renderProfileCard(profile, theme);
+      openCard({ title: 'PROFILE FLASH CARD', canvas, text: profileShareText(profile) });
+    } catch {
+      /* card render failed — stay quiet */
+    }
+  };
+
+  const openResultCard = async () => {
+    const r = race.result;
+    if (!r) return;
+    const you = r.you?.stats;
+    const opp = r.opp?.stats;
+    const won = r.winner === 'you';
+    const accuracy = Math.round((you?.accuracy ?? 0) * 10) / 10;
+    const title = race.room?.snippet?.title || 'TARGET';
+    const canvas = await renderResultCard(
+      {
+        won,
+        yourName: handle,
+        oppName: r.opp?.name || 'RIVAL',
+        oppBot: Boolean(r.opp?.bot),
+        wpm: you?.wpm ?? '—',
+        oppWpm: opp?.wpm ?? '—',
+        accuracy,
+        errors: you?.errors ?? 0,
+        title,
+        modeLabel: race.room?.durationSec ? `${race.room.durationSec}S SPRINT` : 'FIRST TO FINISH'
+      },
+      theme
+    );
+    openCard({ title: 'RACE RESULT', canvas, text: raceShareText({ won, wpm: you?.wpm ?? 0, accuracy, title, oppName: r.opp?.name || 'RIVAL', oppWpm: opp?.wpm ?? '—' }) });
+  };
 
   useEffect(() => {
     if (!race.result) return;
@@ -456,16 +541,39 @@ export default function RaceView() {
           {race.state === 'countdown' && race.countdownAt ? <Countdown at={race.countdownAt} /> : null}
           {status !== 'finished' ? (
             <TypingArena captureRef={captureRef} />
-          ) : (
-            <HudCard label="RACE TRACK" corners={race.result?.winner === 'you' ? 'amber' : 'slate'}>
-              <div className="py-10 text-center">
-                <div
-                  className={`text-2xl font-bold tracking-[0.3em] ${race.result?.winner === 'you' ? 'text-good' : 'text-blood'}`}
-                >
-                  {race.result?.winner === 'you' ? 'VICTORY' : 'DEFEAT'}
+          ) : race.state === 'done' && race.result ? (
+            <HudCard label="RACE TRACK" corners={race.result.winner === 'you' ? 'amber' : 'slate'}>
+              <div className="py-8 text-center">
+                <div className={`text-3xl font-bold tracking-[0.3em] ${race.result.winner === 'you' ? 'text-good' : 'text-blood'}`}>
+                  {race.result.winner === 'you' ? 'VICTORY' : 'DEFEAT'}
                 </div>
-                <div className="mt-3 text-[10px] tracking-[0.2em] text-dim">
-                  {race.state === 'done' ? 'PRESS "NEW RACE" ON THE LEFT TO GO AGAIN' : 'WAITING FOR RIVAL… YOU FINISHED FIRST'}
+                <div className="mt-2 text-[10px] tracking-[0.18em] text-dim">
+                  {race.result.reason === 'timeout'
+                    ? 'TIME UP — MOST CHARS TYPED WINS'
+                    : race.result.reason === 'quit'
+                      ? 'BY FORFEIT'
+                      : 'FIRST TO FINISH WINS'}
+                </div>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                  <button type="button" onClick={openRaceCard} className="chip chip-on-amber py-2 text-[10px]">
+                    ⚡ RACE FLASH CARD
+                  </button>
+                  <button type="button" onClick={openProfileCard} className="chip chip-on-cyan py-2 text-[10px]">
+                    ▣ PROFILE CARD
+                  </button>
+                  <button type="button" onClick={openResultCard} className="chip chip-off py-2 text-[10px]">
+                    ⇗ SHARE RESULT
+                  </button>
+                </div>
+                <div className="mt-5 text-[9px] tracking-[0.2em] text-faint">PRESS "NEW RACE" ON THE LEFT TO GO AGAIN</div>
+              </div>
+            </HudCard>
+          ) : (
+            <HudCard label="RACE TRACK" corners="amber">
+              <div className="py-10 text-center">
+                <div className="text-xl font-bold tracking-[0.28em] text-accent">FINISHED — WAITING FOR RIVAL</div>
+                <div className="mt-3 animate-pulse-soft text-[10px] tracking-[0.2em] text-dim">
+                  YOU HOOKED IT FIRST · THE RESULT LANDS THE MOMENT THEY FINISH
                 </div>
               </div>
             </HudCard>
@@ -494,6 +602,8 @@ export default function RaceView() {
           )}
         </HudCard>
       </div>
+
+      <FlashCardModal open={Boolean(card)} title={card?.title} canvas={card?.canvas} text={card?.text} onClose={() => setCard(null)} />
     </main>
   );
 }

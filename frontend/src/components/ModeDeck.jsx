@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import AdaptivePanel from './AdaptivePanel.jsx';
+import FlashCardsView from './FlashCardsView.jsx';
 import HudCard from './HudCard.jsx';
 import ImportPanel from './ImportPanel.jsx';
 import { useDaily } from '../hooks/useApi.js';
@@ -32,7 +33,8 @@ const TABS = [
   { id: 'target', num: '04', label: 'TARGET', title: 'TARGETS' },
   { id: 'import', num: '05', label: 'IMPORT', title: 'IMPORT CODE' },
   { id: 'aidrill', num: '06', label: 'AI', title: 'AI MICRO-DRILL' },
-  { id: 'flags', num: '07', label: 'FLAGS', title: 'MODES & FLAGS' }
+  { id: 'flags', num: '07', label: 'FLAGS', title: 'MODES & FLAGS' },
+  { id: 'flash', num: '08', label: 'CARDS', title: 'FLASH CARDS' }
 ];
 
 function SectionTitle({ num, title }) {
@@ -433,6 +435,13 @@ export default function ModeDeck() {
               <p className="mt-2 text-[9px] leading-relaxed tracking-[0.06em] text-faint">
                 BLIND HIDES THE CODE AHEAD OF THE CARET (3 CH WINDOW, OR FULLY). GHOST PAIRS FAINT THE CLOSE BRACKET.
               </p>
+            </>
+          ) : null}
+
+          {tab === 'flash' ? (
+            <>
+              <SectionTitle num="08" title={activeTab.title} />
+              <FlashCardsView />
             </>
           ) : null}
         </div>

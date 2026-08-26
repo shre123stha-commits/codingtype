@@ -176,12 +176,28 @@ Four panels, all fed by the session store:
 - **Share cards** — the diagnostics header renders a 1000×560 PNG on a canvas
   (`utils/shareCard.js`): theme-matched palette, WPM hero, 6 stat cells, top-5 friction bars,
   corner crosshairs. `⤓ SHARE PNG` downloads; `⧉ COPY IMG` writes to the clipboard.
+- **Flash cards** — big 1080×1350 (profile + race summary) and 1200×675 (direct result)
+  share PNGs drawn on canvas (`utils/flashCard.js`), all four theme palettes:
+  - **Profile card** — CONTROL DECK tab **08 · CARDS** (or ✦ FEATURES → FLASH CARDS):
+    avatar, handle, level (1 + feats/20), WPM-based rank tier (S/A/B/C/D), 2×2 stat grid,
+    next-rank progress bar, streak + personal best, and a scannable **QR code**
+    (battle-tested `qrcode` package) encoding a text snapshot of the profile.
+  - **Race summary card** — after every 1v1 race: VICTORY/DEFEAT glow, WPM/accuracy/rank
+    cells, and a live **performance curve** (your cyan area vs the rival's gold line —
+    dashed when the rival is still typing when the race settles), keystrokes, errors,
+    career victories, `#RACECHAMPION`.
+  - **Direct result share** — winner/loser panels with WPM + accuracy/errors in one
+    wide 1200×675 PNG.
+  All three open a modal viewer with `⤓ DOWNLOAD PNG`, `⧉ COPY IMAGE` (clipboard),
+  `𝕏 POST ON X` (share intent), `⧉ COPY TEXT` (caption).
 - **Real 1v1 races** — `ws` server on the same HTTP port; **per-code 2-slot lobbies**:
   creating a race mints a **random 6-digit code** (unique, valid 15 min, expires on its own),
-  a second player joins by entering the code, synced start, live progress, winner = first
-  `finishedAt` (timed races: most chars at the bell). **No human in 8s? A bot fills the
-  slot** (240–420 CPM pace, labeled `CT-BOT-n`) so quick races always start; if you finish
-  first the bot catches up ~2s later so the result screen is snappy.
+  a second player joins by entering the code, synced start, live progress. **First to
+  finish wins** — the result lands the instant anyone finishes; an unfinished rival is
+  frozen at its real progress (partial, honest stats — never a fake 100%) and the result
+  screen shows VICTORY/DEFEAT the moment it is settled (a timed race's bell is only a
+  fallback — most chars wins — if nobody finishes in time). **No human in 8s? A bot
+  fills the slot** (240–420 CPM pace, labeled `CT-BOT-n`) so quick races always start.
 - **Ghost race picker** — `GET /api/sessions/pbest-snippets` returns one row per snippet
   you have a PB on (title, wpm, timeSec, accuracy); the RACE tab lists them so you can
   race your past self on any target, or shows a "practice first" hint on first visit.
@@ -344,5 +360,7 @@ codetype/
 
 ```bash
 node scripts/smoke.mjs             # 35 engine asserts (headless, no browser)
-node scripts/verify-features.mjs   # 41-check E2E incl. full 2-player code-lobby ws race (Playwright)
+node scripts/verify-race.mjs       # 22-assert raw-WS race protocol test (first-to-finish settle, bot freeze)
+node scripts/verify-features.mjs   # 42-check E2E incl. full 2-player code-lobby ws race (Playwright)
+node scripts/verify-flashcards.mjs # E2E: flash-card tab + full bot race → VICTORY → all 3 share modals
 ```
