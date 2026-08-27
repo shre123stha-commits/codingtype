@@ -7,6 +7,7 @@ import ImportPanel from './ImportPanel.jsx';
 import { useDaily } from '../hooks/useApi.js';
 import { MODES } from '../data/snippets.js';
 import { useGameStore } from '../store/gameStore.js';
+import { apiUrl } from '../utils/env.js';
 
 const MODE_META = {
   algorithm: { label: 'ALGO', blurb: 'Clean logic templates — sorting, search, trees, graphs.' },
@@ -143,7 +144,7 @@ export default function ModeDeck() {
       return undefined;
     }
     let live = true;
-    fetch(`/api/snippets/${encodeURIComponent(daily.snippetId)}`)
+    fetch(apiUrl(`/api/snippets/${encodeURIComponent(daily.snippetId)}`))
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (live && j) setDailyFull(j);

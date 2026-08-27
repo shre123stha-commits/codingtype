@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import AuthMenu from './AuthMenu.jsx';
 import { useGameStore } from '../store/gameStore.js';
 import { THEME_META } from '../utils/themes.js';
+import { apiUrl } from '../utils/env.js';
 
 function Swatch({ swatch, className = '' }) {
   return (
@@ -242,7 +243,7 @@ export default function TopBar() {
   useEffect(() => {
     if (!apiOnline) return;
     let cancelled = false;
-    fetch('/api/health')
+    fetch(apiUrl('/api/health'))
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!cancelled && j?.version) setApiVersion(String(j.version));

@@ -283,6 +283,52 @@ Server → client:
 
 ---
 
+## Deploying (Vercel + Render)
+
+The app splits cleanly: **frontend on Vercel, API on Render** (Render is needed for the
+WebSocket race server — Vercel serverless functions don't hold long-lived WS connections).
+
+### 1. API → Render
+
+- New → **Web Service** → connect the repo.
+- **Root Directory:** `backend` · **Build Command:** `npm install` · **Start Command:** `node server.js`
+- **Environment variables:**
+  | Name | Value |
+  |------|-------|
+  | `SUPABASE_URL` | your Supabase project URL |
+  | `SUPABASE_ANON_KEY` | your publishable/anon key |
+
+  (`PORT` is set by Render automatically; the server binds `process.env.PORT`.)
+- CORS is open (`app.use(cors())`) and the WS upgrade doesn't filter origins, so any
+  frontend domain can talk to it. No code change needed on this side.
+
+### 2. Frontend → Vercel
+
+- Import the same repo. Framework preset: **Vite** (auto-detected).
+- **Root Directory:** `frontend` · build `npm run build` · output `dist` (all defaults).
+- **Environment variables** (Project → Settings → Environment Variables, all environments):
+  | Name | Value |
+  |------|-------|
+  | `VITE_API_URL` | your Render URL, e.g. `https://codetype-api.onrender.com` |
+  | `VITE_SUPABASE_URL` | same Supabase URL (accounts + cloud sync in the browser) |
+  | `VITE_SUPABASE_ANON_KEY` | same publishable/anon key |
+
+`VITE_API_URL` is the whole integration: `src/utils/env.js` prefixes every REST call and
+derives the `wss://` race endpoint from it. **Leave it unset for local dev** (Vite's
+`/api` proxy handles it) or for a single-host deploy. Vite inlines `VITE_*` vars at build
+time — after changing it on Vercel, the project must **redeploy**.
+
+### 3. Notes
+
+- **Render free tier sleeps** after ~15 min idle. The first request (and WS connection)
+  after a sleep takes ~30–60 s to wake the instance; the top-bar **API LINK** chip shows
+  OFFLINE until it answers and recovers on its own (it re-polls). Paid instances stay up.
+- **Guest data** (not signed in) lives in the API's JSON store — on Render's free tier the
+  disk is ephemeral, so it resets on each deploy/restart. **Signed-in accounts store
+  everything in Supabase**, which persists.
+- Everything the browser does (typing, sessions, daily streaks) works with the API fully
+  offline; only 1v1 races and cloud sync need it.
+
 ## Troubleshooting
 
 | Symptom | Cause / Fix |

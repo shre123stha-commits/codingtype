@@ -2,11 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useGameStore } from '../store/gameStore.js';
 import { getRaceRecord, saveRaceRecord } from '../utils/raceRecord.js';
-
-function wsUrl() {
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${proto}://${window.location.host}/api/ws`;
-}
+import { wsUrl } from '../utils/env.js';
 
 export function useRace() {
   const [state, setState] = useState('idle'); // idle | waiting | countdown | racing | done | error
