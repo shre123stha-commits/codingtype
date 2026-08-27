@@ -4,6 +4,7 @@ import { prepareSnippet } from '../utils/snippetEngine.js';
 import { frictionKey } from '../utils/symbols.js';
 import { burstWpm, buildRunStats, wpmFromChars } from '../utils/metrics.js';
 import { THEME_IDS } from '../utils/themes.js';
+import { apiUrl } from '../utils/env.js';
 
 const OPENERS = new Set(['(', '[', '{', '"', "'", '`']);
 
@@ -155,7 +156,7 @@ export const useGameStore = create((set, get) => ({
     let full = raw;
     if (full && !full.code && full.id) {
       try {
-        const res = await fetch(`/api/snippets/${encodeURIComponent(full.id)}`);
+        const res = await fetch(apiUrl(`/api/snippets/${encodeURIComponent(full.id)}`));
         if (!res.ok) throw new Error('snippet fetch failed');
         full = await res.json();
       } catch {

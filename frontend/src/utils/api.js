@@ -1,5 +1,6 @@
 const REQUEST_TIMEOUT_MS = 10000;
 
+import { API_BASE } from './env.js';
 import { supabase } from './supabase.js';
 
 // When signed in, tag every API call with the Supabase JWT so the backend
@@ -20,7 +21,7 @@ async function request(path, options = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(path, {
+    const res = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers: { ...(await authHeaders()), ...(options.headers || {}) },
       signal: ctrl.signal
