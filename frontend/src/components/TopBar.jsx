@@ -234,6 +234,11 @@ function FeaturesMenu() {
   );
 }
 
+// Bump on every deploy so users can see at a glance which build is running
+// (top-right corner, amber). v1.4.0 = glide caret anchored on the words +
+// WPM race (live WPM for both players).
+const FE_VERSION = '1.4.0';
+
 export default function TopBar() {
   const snippet = useGameStore((s) => s.snippet);
   const apiOnline = useGameStore((s) => s.apiOnline);
@@ -292,7 +297,7 @@ export default function TopBar() {
           <span className={`h-1.5 w-1.5 rounded-full ${apiOnline ? 'bg-pulse' : 'bg-accent'} animate-pulse-soft`} />
           {apiOnline ? 'API LINK: LIVE' : 'API LINK: LOCAL'}
         </span>
-        <span className="hidden text-[10px] tracking-[0.18em] text-faint sm:inline">v{apiVersion}</span>
+        <span className="text-[11px] font-bold tracking-[0.18em] text-accent" title="frontend build">v{FE_VERSION}</span>
       </div>
     </header>
   );

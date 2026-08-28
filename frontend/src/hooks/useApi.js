@@ -67,6 +67,24 @@ export function useAnalytics() {
   return { keyStats, fingerStats, sessions, pbests };
 }
 
+// module-scoped: survives view switches so a finished run is posted exactly
+// once, no matter which view it was completed in (StrictMode-safe)
+const postedRunIds = new Set();
+
+// Persists finished runs to the session store. Previously lived inside
+// HistoryPanel — but that only mounted on TRAIN/ANALYTICS, so it has to be
+// app-level: the home page no longer shows the session log.
+export function useSessionPost() {
+  const apiOnline = useGameStore((s) => s.apiOnline);
+  const lastRun = useGameStore((s) => s.lastRun);
+  useEffect(() => {
+    if (!apiOnline || !lastRun) return;
+    if (postedRunIds.has(lastRun.id)) return;
+    postedRunIds.add(lastRun.id);
+    api.saveSession(lastRun).catch(() => {});
+  }, [apiOnline, lastRun]);
+}
+
 const REPO_ID = /^(py|js|java|cpp|rs|sql)-/;
 
 export function useGhost() {

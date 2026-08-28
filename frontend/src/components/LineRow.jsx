@@ -33,6 +33,7 @@ function LineRow({
   showCaret,
   blind,
   ghostPos,
+  rivalPos,
   errorsStr,
   autoStr,
   ghostStr,
@@ -42,6 +43,18 @@ function LineRow({
   const autoSet = new Set(parseList(autoStr).map(Number));
   const ghostSet = new Set(parseList(ghostStr).map(Number));
   const pending = pendingStr ? pendingStr.split('-').map(Number) : null;
+
+  // Fractional local position of the ghost / rival cursors on THIS line
+  // (null = not on this line). Rendered as persistent overlays and moved by
+  // transform, so a CSS transition makes them glide continuously.
+  const localOf = (pos) => {
+    if (pos === null || pos === undefined) return null;
+    const raw = pos - start;
+    if (raw < 0 || raw > text.length + 1e-6) return null;
+    return Math.min(raw, text.length);
+  };
+  const gLocal = localOf(ghostPos);
+  const rLocal = localOf(rivalPos);
 
   const chars = [];
   for (let k = 0; k < text.length; k++) {
@@ -67,9 +80,6 @@ function LineRow({
     if (showCaret && i === pointer) {
       chars.push(<Caret key={`caret-${i}`} />);
     }
-    if (ghostPos !== null && ghostPos !== undefined && ghostPos === i) {
-      chars.push(<GhostCaret key={`ghost-${i}`} />);
-    }
 
     const token = charCls[i] || '';
     const cls =
@@ -87,7 +97,6 @@ function LineRow({
   }
 
   const caretAtEnd = showCaret && pointer === start + text.length && text.length > 0;
-  const ghostAtEnd = ghostPos !== null && ghostPos !== undefined && ghostPos === start + text.length;
 
   return (
     <div className={`group flex items-stretch leading-[26px] ${isCurrent ? 'bg-accent/[0.04]' : ''}`}>
@@ -98,9 +107,36 @@ function LineRow({
       >
         {lineIndex + 1}
       </span>
-      <span className="relative whitespace-pre">{chars}</span>
-      {caretAtEnd ? <Caret key="caret-end" className="ml-[1px]" /> : null}
-      {ghostAtEnd ? <GhostCaret key="ghost-end" className="ml-[1px]" /> : null}
+      <span className="relative whitespace-pre">
+        {chars}
+        {caretAtEnd ? <Caret key="caret-end" className="ml-[1px]" /> : null}
+        {gLocal !== null ? (
+          <span
+            key="ghost-glide"
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-[6px] z-10"
+            style={{ transform: `translateX(${gLocal}ch)`, transition: 'transform 140ms linear' }}
+          >
+            <span
+              className="block h-[15px] w-[2px] bg-pulse"
+              style={{ boxShadow: '0 0 8px rgb(var(--c-pulse) / 0.8)' }}
+            />
+          </span>
+        ) : null}
+        {rLocal !== null ? (
+          <span
+            key="rival-glide"
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-[6px] z-10"
+            style={{ transform: `translateX(${rLocal}ch)`, transition: 'transform 140ms linear' }}
+          >
+            <span
+              className="block h-[15px] w-[2px] bg-blood"
+              style={{ boxShadow: '0 0 8px rgb(var(--c-blood) / 0.9)' }}
+            />
+          </span>
+        ) : null}
+      </span>
     </div>
   );
 }
@@ -110,15 +146,6 @@ function Caret({ className = '' }) {
     <span
       className={`inline-block h-[15px] w-[2px] translate-y-[3px] animate-blink bg-accent ${className}`}
       style={{ boxShadow: '0 0 6px rgb(var(--c-accent) / 0.6)' }}
-    />
-  );
-}
-
-function GhostCaret({ className = '' }) {
-  return (
-    <span
-      className={`inline-block h-[15px] w-[2px] translate-y-[3px] bg-pulse ${className}`}
-      style={{ boxShadow: '0 0 8px rgb(var(--c-pulse) / 0.8)' }}
     />
   );
 }

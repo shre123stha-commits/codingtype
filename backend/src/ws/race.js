@@ -368,7 +368,10 @@ export function createRaceWs(server) {
         // finishes. The opponent is frozen exactly where they are (their
         // real progress, never a fake 100% "finished").
         if (opp.bot && !opp.done) settleBot(room, false);
-        sendOpp(room, side, { type: 'opponent', chars: mine.liveChars || Number(msg.chars) || 0, done: true });
+        // freeze the rival's cursor at their REAL final position — the last
+        // progress ping can be up to 250ms behind the finish
+        const finalChars = Math.min(Number(msg.chars) || mine.liveChars || 0, 100000);
+        sendOpp(room, side, { type: 'opponent', chars: finalChars, done: true });
         finishRace(room, 'finish');
       }
     });

@@ -1,15 +1,18 @@
 import { useState } from 'react';
 
+import { useGameStore } from '../store/gameStore.js';
 import { renderShareCard } from '../utils/shareCard.js';
 
 export default function ShareCard({ run, theme }) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const authUser = useGameStore((s) => s.authUser);
+  const handle = (authUser ? String(authUser).split('@')[0] : 'GUEST').toUpperCase();
 
   const generate = async () => {
     setBusy(true);
     try {
-      return await renderShareCard(run, theme);
+      return await renderShareCard(run, theme, handle);
     } finally {
       setBusy(false);
     }

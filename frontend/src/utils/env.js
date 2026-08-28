@@ -8,7 +8,8 @@
 //
 // (Vercel: Project → Settings → Environment Variables. Vite inlines
 // VITE_-prefixed vars at build time, so the app needs no runtime config.)
-const raw = import.meta.env.VITE_API_URL || '';
+// import.meta.env is Vite-only — guard for plain-Node consumers (scripts).
+const raw = (import.meta.env ?? {}).VITE_API_URL || '';
 export const API_BASE = raw.replace(/\/+$/, '');
 
 export const apiUrl = (path) => `${API_BASE}${path}`;

@@ -30,13 +30,14 @@ export default {
         ]
       },
       boxShadow: {
-        'glow-amber': '0 0 22px rgb(var(--c-accent) / 0.25)',
-        'glow-cyan': '0 0 22px rgb(var(--c-pulse) / 0.2)',
-        'glow-blood': '0 0 18px rgb(var(--c-blood) / 0.25)'
+        'glow-amber': '0 0 16px rgb(var(--c-accent) / 0.14)',
+        'glow-cyan': '0 0 16px rgb(var(--c-pulse) / 0.12)',
+        'glow-blood': '0 0 14px rgb(var(--c-blood) / 0.16)'
       },
       animation: {
         blink: 'blink 1.05s steps(2, start) infinite',
-        'pulse-soft': 'pulseSoft 2.2s ease-in-out infinite'
+        'pulse-soft': 'pulseSoft 2.2s ease-in-out infinite',
+        'hint-glow': 'hintGlow 1.8s ease-in-out infinite'
       },
       keyframes: {
         blink: {
@@ -46,6 +47,10 @@ export default {
         pulseSoft: {
           '0%, 100%': { opacity: '0.55' },
           '50%': { opacity: '1' }
+        },
+        hintGlow: {
+          '0%, 100%': { opacity: '0.5', textShadow: '0 0 4px rgb(var(--c-accent) / 0.25)' },
+          '50%': { opacity: '1', textShadow: '0 0 16px rgb(var(--c-accent) / 0.8)' }
         }
       }
     }

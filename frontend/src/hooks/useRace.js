@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useGameStore } from '../store/gameStore.js';
 import { getRaceRecord, saveRaceRecord } from '../utils/raceRecord.js';
+import { rivalCursorFreeze, rivalCursorPush, rivalCursorReset } from '../utils/rivalCursor.js';
 import { wsUrl } from '../utils/env.js';
 
 export function useRace() {
@@ -109,19 +110,33 @@ export function useRace() {
         oppCharsRef.current = 0;
         setOppDone(false);
         setResult(null);
+        rivalCursorReset(msg.code, 0);
+        useGameStore.getState().setRival({
+          name: msg.opp?.name || 'RIVAL',
+          bot: Boolean(msg.opp?.bot),
+          chars: 0,
+          done: false
+        });
         setState('countdown');
       } else if (msg.type === 'opponent') {
         const chars = msg.chars || 0;
         oppCharsRef.current = chars;
         setOppChars(chars);
         setOppDone(Boolean(msg.done));
+        if (msg.done) rivalCursorFreeze(chars);
+        else rivalCursorPush(chars);
+        const st = useGameStore.getState();
+        if (st.rival) st.setRival({ ...st.rival, chars, done: Boolean(msg.done) });
       } else if (msg.type === 'result') {
         useGameStore.getState().lockInput(false);
         pushSample();
+        useGameStore.getState().setRival(null);
         setResult(msg);
         setState('done');
       } else if (msg.type === 'roomClosed') {
         useGameStore.getState().lockInput(false);
+        useGameStore.getState().setRival(null);
+        rivalCursorReset(null);
         setState('idle');
         setRoom(null);
         setJoinError(null);
@@ -212,6 +227,8 @@ export function useRace() {
     setJoinError(null);
     setErrorMsg('');
     progressRef.current = [];
+    useGameStore.getState().setRival(null);
+    rivalCursorReset(null);
     setState('idle');
   }, [cleanup]);
 
@@ -226,8 +243,18 @@ export function useRace() {
 
   useEffect(() => {
     if (state !== 'racing') return;
-    pushSample();
-    const id = setInterval(pushSample, 250);
+    const tick = () => {
+      pushSample();
+      const st = useGameStore.getState();
+      const ws = socketRef.current;
+      // broadcast our live position every 250ms — the backend mirrors it to
+      // the other side so their cursor moves in real time, exactly like a bot's
+      if (ws && ws.readyState === 1 && st.status === 'running') {
+        ws.send(JSON.stringify({ type: 'progress', chars: st.pointer }));
+      }
+    };
+    tick();
+    const id = setInterval(tick, 250);
     return () => clearInterval(id);
   }, [state, pushSample]);
 

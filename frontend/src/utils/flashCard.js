@@ -45,10 +45,10 @@ function frame(ctx, w, h, p) {
   for (let y = 22; y < h; y += 22) {
     for (let x = 22; x < w; x += 22) ctx.fillRect(x, y, 1.5, 1.5);
   }
-  // top glow
+  // top glow (theme accent, so it matches the card's palette)
   const g = ctx.createRadialGradient(w / 2, -h * 0.08, 0, w / 2, -h * 0.08, h * 0.75);
-  g.addColorStop(0, 'rgba(56,189,248,0.10)');
-  g.addColorStop(1, 'rgba(56,189,248,0)');
+  g.addColorStop(0, `rgba(${hexRgb(p.accent)},0.10)`);
+  g.addColorStop(1, `rgba(${hexRgb(p.accent)},0)`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
   // border
