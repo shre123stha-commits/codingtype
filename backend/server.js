@@ -30,7 +30,7 @@ process.on('uncaughtException', (err) => logCrash('uncaughtException', err));
 process.on('unhandledRejection', (err) => logCrash('unhandledRejection', err));
 
 const app = express();
-const API_VERSION = '1.2.0';
+const API_VERSION = '1.3.0';
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));

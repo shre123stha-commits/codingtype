@@ -38,15 +38,23 @@ function Countdown({ at }) {
   );
 }
 
-function PlayerBar({ label, chars, total, done, color }) {
+function PlayerBar({ label, chars, total, done, color, wpm }) {
   const pct = total ? Math.min(100, Math.round((chars / total) * 100)) : 0;
   return (
     <div className="min-w-0 flex-1">
-      <div className="mb-1 flex items-center justify-between text-[9px] tracking-[0.18em]">
+      <div className="mb-1 flex items-center justify-between gap-2 text-[9px] tracking-[0.18em]">
         <span className="truncate font-semibold" style={{ color }}>
           {label}
         </span>
-        <span className="shrink-0 tabular-nums text-dim">{done ? 'FINISHED' : `${pct}%`}</span>
+        <span className="shrink-0 tabular-nums text-dim">
+          {wpm > 0 ? (
+            <span className="font-bold" style={{ color }}>
+              {wpm} WPM
+            </span>
+          ) : null}
+          {wpm > 0 ? <span className="mx-1.5 text-edge">·</span> : null}
+          {done ? 'FINISHED' : `${pct}%`}
+        </span>
       </div>
       <div className="h-2 w-full bg-edge/60">
         <div className="h-full transition-[width] duration-200" style={{ width: `${done ? 100 : pct}%`, background: color }} />
@@ -60,27 +68,45 @@ function fmtClock(ms) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function GhostRaceCard() {
+function GhostRaceCard({ raceState }) {
   const pbests = usePbestSnippets();
   const loadSnippet = useGameStore((s) => s.loadSnippet);
-  const setView = useGameStore((s) => s.setView);
+  const status = useGameStore((s) => s.status);
   const [pick, setPick] = useState(null);
   const [busy, setBusy] = useState(false);
+  const autoRef = useRef(false);
+  const seqRef = useRef(0);
 
   const selected = pbests?.find((p) => p.snippetId === pick) || pbests?.[0] || null;
 
-  const start = async () => {
-    if (!selected) return;
+  const start = async (target) => {
+    const t = target || selected;
+    if (!t) return;
+    const seq = ++seqRef.current;
     setBusy(true);
     try {
-      const full = await api.snippet(selected.snippetId);
+      const full = await api.snippet(t.snippetId);
+      if (seq !== seqRef.current) return; // a newer selection won — drop the stale load
       loadSnippet(full);
-      setView('train');
     } catch {
       /* offline */
     }
     setBusy(false);
   };
+
+  // Auto-start: walk into RACE while idle (or right after finishing) and your
+  // default PB loads straight into the arena — no button needed. Picking a
+  // different PB in the dropdown loads that one instead. Never fires while a
+  // 1v1 race is live or has just landed (that board state belongs to the race,
+  // not to the ghost), and never mid-run (status running/paused).
+  useEffect(() => {
+    if (autoRef.current || busy) return;
+    if (raceState !== 'idle') return;
+    if (!pbests || pbests.length === 0) return;
+    if (!(status === 'idle' || status === 'finished')) return;
+    autoRef.current = true;
+    start(pbests[0]);
+  }, [pbests, status, busy, raceState]);
 
   return (
     <HudCard label="GHOST RACE" right={<span className="hud-label">VS PAST SELF</span>}>
@@ -94,7 +120,11 @@ function GhostRaceCard() {
         <div className="space-y-2">
           <select
             value={selected?.snippetId || ''}
-            onChange={(e) => setPick(e.target.value)}
+            onChange={(e) => {
+              setPick(e.target.value);
+              const t = pbests.find((p) => p.snippetId === e.target.value);
+              if (t) start(t);
+            }}
             className="w-full border border-edge bg-panel2 px-2 py-1.5 text-[10px] tracking-[0.06em] text-ink focus:border-accent focus:outline-none"
             aria-label="ghost target"
           >
@@ -109,11 +139,56 @@ function GhostRaceCard() {
               PB: {selected.wpm} WPM · {selected.timeSec}s · {Math.round(selected.accuracy)}% ACC
             </p>
           ) : null}
-          <button type="button" onClick={start} disabled={busy} className="chip chip-on-cyan w-full py-2 text-[10px] disabled:opacity-40">
+          <button type="button" onClick={() => start()} disabled={busy} className="chip chip-on-cyan w-full py-2 text-[10px] disabled:opacity-40">
             ▶ START GHOST RACE
           </button>
+          <p className="text-[9px] leading-relaxed tracking-[0.06em] text-faint">
+            AUTO-LOADS ON ARRIVAL — PICK A PB OR PRESS START TO (RE)LOAD IT.
+          </p>
         </div>
       )}
+    </HudCard>
+  );
+}
+
+// Verdict shown when a run finished while on the RACE view with a ghost active
+// (no 1v1 race in play) — the ghost-replay comparison, mirrored from TRAIN's
+// diagnostic dashboard.
+function GhostVerdictCard({ ghostBeaten, raceGhost, timeSec, wpm }) {
+  const beat = ghostBeaten === true;
+  return (
+    <HudCard label="GHOST RACE" corners={beat ? 'amber' : 'slate'}>
+      <div className="py-8 text-center">
+        <div className={`text-3xl font-bold tracking-[0.3em] ${beat ? 'text-good' : 'text-blood'}`}>
+          {beat ? 'GHOST BEATEN' : 'GHOST WINS'}
+        </div>
+        <div className="mt-2 text-[10px] tracking-[0.18em] text-dim">
+          {beat
+            ? `YOUR BEST WAS ${raceGhost.timeSec.toFixed(1)}s — YOU CAME BACK IN ${timeSec.toFixed(1)}s`
+            : `YOUR BEST IS STILL ${raceGhost.timeSec.toFixed(1)}s — YOU WERE ${timeSec.toFixed(1)}s`}
+        </div>
+        <div className="mt-2 text-[10px] font-bold tabular-nums tracking-[0.18em]">
+          <span className="text-accent">{wpm ?? '—'} WPM</span>
+          <span className="mx-2 text-faint">VS</span>
+          <span className="text-pulse">{raceGhost.wpm} WPM GHOST</span>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => useGameStore.getState().restart()}
+            className="chip chip-on-amber py-2 text-[10px]"
+          >
+            ↻ RUN AGAIN
+          </button>
+          <button
+            type="button"
+            onClick={() => useGameStore.getState().setView('train')}
+            className="chip chip-off py-2 text-[10px]"
+          >
+            ⇗ FULL DIAGNOSTICS
+          </button>
+        </div>
+      </div>
     </HudCard>
   );
 }
@@ -297,8 +372,10 @@ export default function RaceView() {
   const theme = useGameStore((s) => s.theme);
   const authUser = useGameStore((s) => s.authUser);
   const lastRun = useGameStore((s) => s.lastRun);
+  const raceGhost = useGameStore((s) => s.raceGhost);
   const daily = useDaily();
   const handle = (authUser ? String(authUser).split('@')[0] : 'GUEST').toUpperCase();
+  const ghostBeaten = raceGhost && lastRun?.stats ? lastRun.stats.timeSec < raceGhost.timeSec : null;
 
   const openCard = (c) => setCard(c);
 
@@ -403,6 +480,12 @@ export default function RaceView() {
   const durLeft =
     race.state === 'racing' && race.room?.durationSec ? race.raceStartAt + race.room.durationSec * 1000 - now : 0;
 
+  // Live WPM for both players — the race is read in WPM (5-char words), not raw chars.
+  const correctChars = useGameStore((s) => s.correctChars);
+  const raceElapsedSec = race.raceStartAt ? Math.max(0.1, (now - race.raceStartAt) / 1000) : 0;
+  const youWpm = raceElapsedSec && status !== 'idle' ? Math.round((correctChars / 5) / (raceElapsedSec / 60)) : 0;
+  const oppWpm = raceElapsedSec && race.oppChars ? Math.round((race.oppChars / 5) / (raceElapsedSec / 60)) : 0;
+
   const rivalName = race.result?.opp?.bot
     ? race.result.opp.name
     : race.room?.opp?.bot
@@ -421,7 +504,7 @@ export default function RaceView() {
   return (
     <main className="mx-auto grid max-w-[1600px] grid-cols-1 gap-4 p-4 xl:grid-cols-[320px_minmax(0,1fr)_300px]">
       <div className="order-2 space-y-4 xl:order-1">
-        <GhostRaceCard />
+        <GhostRaceCard raceState={race.state} />
 
         <HudCard label="1V1 QUICK RACE" right={<span className="hud-label">CODE LOBBY</span>}>
           {!apiOnline ? (
@@ -526,14 +609,14 @@ export default function RaceView() {
         {inRace || race.state === 'done' ? (
           <HudCard label="RACE TRACK" corners={race.state === 'racing' ? 'amber' : 'slate'}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <PlayerBar label="YOU" chars={pointer} total={total} done={status === 'finished'} color="rgb(var(--c-accent))" />
+              <PlayerBar label="YOU" chars={pointer} total={total} done={status === 'finished'} color="rgb(var(--c-accent))" wpm={youWpm} />
               <div className="flex shrink-0 flex-col items-center text-faint">
                 <span className="text-[10px] font-bold tracking-[0.3em]">VS</span>
                 {durLeft > 0 ? (
                   <span className="text-[11px] font-bold tabular-nums text-blood">{fmtClock(durLeft)}</span>
                 ) : null}
               </div>
-              <PlayerBar label={rivalName} chars={race.oppChars} total={total} done={race.oppDone} color="rgb(var(--c-pulse))" />
+              <PlayerBar label={rivalName} chars={race.oppChars} total={total} done={race.oppDone} color="rgb(var(--c-blood))" wpm={oppWpm} />
             </div>
           </HudCard>
         ) : null}
@@ -568,6 +651,31 @@ export default function RaceView() {
                 <div className="mt-5 text-[9px] tracking-[0.2em] text-faint">PRESS "NEW RACE" ON THE LEFT TO GO AGAIN</div>
               </div>
             </HudCard>
+          ) : race.state === 'idle' ? (
+            raceGhost ? (
+              <GhostVerdictCard
+                ghostBeaten={ghostBeaten}
+                raceGhost={raceGhost}
+                timeSec={lastRun?.stats?.timeSec ?? 0}
+                wpm={lastRun?.stats?.wpm ?? 0}
+              />
+            ) : (
+              <HudCard label="RUN COMPLETE" corners="slate">
+                <div className="py-8 text-center">
+                  <div className="text-2xl font-bold tracking-[0.3em] text-accent">RUN COMPLETE</div>
+                  <div className="mt-2 text-[10px] tracking-[0.18em] text-dim">FULL DIAGNOSTICS LIVE IN THE TRAIN VIEW</div>
+                  <div className="mt-5 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => useGameStore.getState().setView('train')}
+                      className="chip chip-on-amber py-2 text-[10px]"
+                    >
+                      ⇗ OPEN DIAGNOSTICS
+                    </button>
+                  </div>
+                </div>
+              </HudCard>
+            )
           ) : (
             <HudCard label="RACE TRACK" corners="amber">
               <div className="py-10 text-center">

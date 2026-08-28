@@ -4,7 +4,8 @@ import HudCard from './HudCard.jsx';
 import LineRow from './LineRow.jsx';
 import RestartButton from './RestartButton.jsx';
 import StatusBadge from './StatusBadge.jsx';
-import { ghostCharsAt } from '../utils/ghostRace.js';
+import { ghostCharsAtF } from '../utils/ghostRace.js';
+import { rivalCursorChars } from '../utils/rivalCursor.js';
 import { useGameStore } from '../store/gameStore.js';
 
 function inRange(i, line) {
@@ -45,22 +46,40 @@ export default function TypingArena({ captureRef }) {
   const status = useGameStore((s) => s.status);
   const blind = useGameStore((s) => s.blind);
   const raceGhost = useGameStore((s) => s.raceGhost);
+  const rival = useGameStore((s) => s.rival);
   const [ghostPos, setGhostPos] = useState(0);
+  const [rivalPos, setRivalPos] = useState(0);
+
+  const hasRival = Boolean(rival);
 
   useEffect(() => {
-    if (!raceGhost || status !== 'running') {
+    // race fully gone — clear. Otherwise keep positions (a pause must not
+    // snap the cursors back to 0; the overlay covers them while paused).
+    if ((!raceGhost && !hasRival) || status === 'finished') {
       setGhostPos(0);
+      setRivalPos(0);
       return;
     }
+    if (status !== 'running') return;
     const id = setInterval(() => {
       const st = useGameStore.getState();
+      if (st.status !== 'running') return;
       const g = st.raceGhost;
-      if (!g || st.status !== 'running') return;
-      const pos = Math.min(ghostCharsAt(g.points, st.elapsedAt(Date.now())), g.total);
-      setGhostPos((prev) => (prev === pos ? prev : pos));
-    }, 150);
+      if (g) {
+        // fractional: the ghost glides between PB characters, finishing at
+        // the PB's real duration
+        const pos = Math.min(ghostCharsAtF(g.points, st.elapsedAt(Date.now()), g.timeSec), g.total);
+        setGhostPos((prev) => (prev === pos ? prev : pos));
+      }
+      const rv = st.rival;
+      if (rv) {
+        // fractional: the rival chases the latest live report
+        const pos = rv.done ? rv.chars : rivalCursorChars(Date.now());
+        setRivalPos((prev) => (prev === pos ? prev : pos));
+      }
+    }, 100);
     return () => clearInterval(id);
-  }, [raceGhost, status]);
+  }, [raceGhost, hasRival, status]);
 
   const currentLine = useMemo(() => {
     if (!snippet) return 0;
@@ -72,7 +91,8 @@ export default function TypingArena({ captureRef }) {
     return lines.length - 1;
   }, [snippet, pointer]);
 
-  const ghostPosOut = status === 'running' ? ghostPos : null;
+  const ghostPosOut = status === 'running' && raceGhost ? ghostPos : null;
+  const rivalPosOut = status === 'running' && hasRival ? Math.min(rivalPos, snippet.charCount) : null;
 
   const lineViews = useMemo(() => {
     if (!snippet) return [];
@@ -130,6 +150,15 @@ export default function TypingArena({ captureRef }) {
         </span>
       </div>
 
+      {status === 'idle' ? (
+        <div className="flex items-center justify-center gap-2.5 border-b border-edge/60 bg-accent/[0.05] px-4 py-1.5">
+          <span className="h-1.5 w-1.5 animate-hint-glow rounded-full bg-accent shadow-glow-amber" />
+          <span className="animate-hint-glow text-[9px] font-semibold tracking-[0.3em] text-accent">
+            FIRST KEY STARTS THE CLOCK
+          </span>
+        </div>
+      ) : null}
+
       <div className="relative max-h-[540px] overflow-auto py-3 pl-2 pr-4 font-mono text-[13px]">
         {lineViews.map((view) => (
           <LineRow
@@ -138,17 +167,10 @@ export default function TypingArena({ captureRef }) {
             pointer={pointer}
             blind={blind}
             ghostPos={ghostPosOut}
+            rivalPos={rivalPosOut}
             showCaret={status !== 'finished' && view.lineIndex === currentLine}
           />
         ))}
-
-        {status === 'idle' ? (
-          <div className="pointer-events-none absolute bottom-3 left-12">
-            <span className="border border-edge bg-panel px-2.5 py-1 text-[9px] tracking-[0.24em] text-dim">
-              FIRST KEY STARTS THE CLOCK
-            </span>
-          </div>
-        ) : null}
 
         {status === 'paused' ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-obsidian/80 backdrop-blur-[2px]">
@@ -158,6 +180,15 @@ export default function TypingArena({ captureRef }) {
             </div>
           </div>
         ) : null}
+      </div>
+
+      <div className="h-[3px] w-full bg-edge/50">
+        <div
+          className="h-full bg-accent transition-[width] duration-150"
+          style={{
+            width: `${snippet.charCount ? Math.min(100, Math.round((pointer / snippet.charCount) * 100)) : 0}%`
+          }}
+        />
       </div>
 
       <input

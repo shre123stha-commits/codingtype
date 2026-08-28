@@ -28,7 +28,9 @@ function sanitizeCharStats(obj) {
 
 function sanitizeCharTimes(arr) {
   if (!Array.isArray(arr)) return [];
-  return arr.slice(0, 2000).map((c) => ({ t: Math.round(Number(c?.t) || 0), n: Number(c?.n) || 1 }));
+  // keep millisecond precision — whole-second rounding made PB ghost replays
+  // teleport (all keystrokes inside a second shared one timestamp)
+  return arr.slice(0, 2000).map((c) => ({ t: Math.round((Number(c?.t) || 0) * 1000) / 1000, n: Number(c?.n) || 1 }));
 }
 
 function sessionShape(payload) {

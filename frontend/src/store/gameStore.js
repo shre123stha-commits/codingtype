@@ -17,7 +17,7 @@ function initialTheme() {
   } catch {
     /* private mode */
   }
-  return 'obsidian';
+  return 'midnight';
 }
 
 const freshSession = () => ({
@@ -88,6 +88,7 @@ export const useGameStore = create((set, get) => ({
   deckTab: 'daily',
   inputLocked: false,
   raceGhost: null,
+  rival: null, // live 1v1 rival: { name, bot, chars, done }
 
   snippet: null,
   status: 'idle',
@@ -148,6 +149,9 @@ export const useGameStore = create((set, get) => ({
   },
   setRaceGhost(g) {
     set({ raceGhost: g });
+  },
+  setRival(r) {
+    set({ rival: r });
   },
 
   // raw may be a full snippet (with .code) or a catalog summary (no code).

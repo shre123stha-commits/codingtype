@@ -21,11 +21,11 @@ function useClock() {
   return now;
 }
 
-function Cell({ label, value, tone = 'text-ink' }) {
+function Cell({ label, value, tone = 'text-ink', size = 'text-lg' }) {
   return (
-    <div className="flex min-w-[72px] flex-col">
+    <div className="flex min-w-[64px] flex-col">
       <span className="hud-label">{label}</span>
-      <span className={`text-lg font-bold tabular-nums ${tone}`}>{value}</span>
+      <span className={`${size} font-bold tabular-nums leading-tight ${tone}`}>{value}</span>
     </div>
   );
 }
@@ -64,15 +64,23 @@ export default function LiveHud() {
   const acc = attempts ? Math.round(((attempts - errorCount) / attempts) * 100) : 100;
 
   return (
-    <div className="hud-card px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <Cell label="TIME" value={time} tone="text-ink" />
-        <Cell label="CPM" value={cpm} tone="text-ink" />
-        <Cell label="WPM" value={wpm} tone="text-accent" />
-        <Cell label="RAW" value={raw} tone="text-pulse" />
-        <Cell label="ACC" value={`${acc}%`} tone={acc >= 95 ? 'text-good' : 'text-blood'} />
-        <Cell label="ERR" value={errorCount} tone={errorCount > 0 ? 'text-blood' : 'text-dim'} />
-        <Cell label="PROG" value={`${progress}%`} tone="text-dim" />
+    <div className="hud-card px-5 py-4">
+      <div className="grid grid-cols-4 gap-3 sm:gap-6">
+        <Cell label="WPM" value={wpm} tone="text-accent" size="text-3xl sm:text-4xl" />
+        <Cell label="RAW" value={raw} tone="text-pulse" size="text-3xl sm:text-4xl" />
+        <Cell
+          label="ACCURACY"
+          value={`${acc}%`}
+          tone={acc >= 95 ? 'text-good' : 'text-blood'}
+          size="text-3xl sm:text-4xl"
+        />
+        <Cell label="TIME" value={time} tone="text-ink" size="text-3xl sm:text-4xl" />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-edge/70 pt-3">
+        <Cell label="CPM" value={cpm} tone="text-ink" size="text-sm" />
+        <Cell label="ERR" value={errorCount} tone={errorCount > 0 ? 'text-blood' : 'text-dim'} size="text-sm" />
+        <Cell label="PROG" value={`${progress}%`} tone="text-dim" size="text-sm" />
 
         <div className="ml-auto hidden items-center gap-2 md:flex">
           <Flag on={strictMode} label="STRICT" />
@@ -80,7 +88,7 @@ export default function LiveHud() {
           <Flag on={indentAssist} label="ASSIST" />
           {ghostDelta !== null ? (
             <span
-              className={`border px-2 py-0.5 text-[9px] font-semibold tabular-nums tracking-[0.14em] ${
+              className={`rounded border px-2 py-0.5 text-[9px] font-semibold tabular-nums tracking-[0.14em] ${
                 ghostDelta >= 0
                   ? 'border-pulse/50 bg-pulse/10 text-pulse'
                   : 'border-blood/50 bg-blood/10 text-blood'
@@ -91,12 +99,6 @@ export default function LiveHud() {
             </span>
           ) : null}
         </div>
-      </div>
-      <div className="mt-3 h-1 w-full bg-edge/60">
-        <div
-          className="h-full bg-accent shadow-glow-amber transition-[width] duration-150"
-          style={{ width: `${progress}%` }}
-        />
       </div>
     </div>
   );

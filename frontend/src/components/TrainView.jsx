@@ -1,6 +1,5 @@
 import DiagnosticDashboard from './DiagnosticDashboard.jsx';
 import FrictionPreview from './FrictionPreview.jsx';
-import HistoryPanel from './HistoryPanel.jsx';
 import LiveHud from './LiveHud.jsx';
 import ModeDeck from './ModeDeck.jsx';
 import TypingArena from './TypingArena.jsx';
@@ -21,14 +20,17 @@ export default function TrainView() {
           <DiagnosticDashboard />
         ) : (
           <>
+            <p className="pt-1 text-center text-[10px] font-semibold tracking-[0.34em] text-faint">
+              TYPE REAL CODE · TRAIN THE MUSCLE MEMORY
+            </p>
             <LiveHud />
             <TypingArena captureRef={captureRef} />
           </>
         )}
       </div>
-      <div className="order-3 space-y-4">
+      <div className="order-3">
+        {/* SESSION LOG lives in the ANALYTICS tab — home stays clean */}
         <FrictionPreview />
-        <HistoryPanel />
       </div>
     </main>
   );

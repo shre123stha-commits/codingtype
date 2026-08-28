@@ -3,34 +3,64 @@
 @tailwind utilities;
 
 :root,
+:root[data-theme='midnight'] {
+  --c-bg: 10 13 19;
+  --c-panel: 16 20 28;
+  --c-panel2: 23 29 40;
+  --c-edge: 33 41 54;
+  --c-edge2: 45 55 73;
+  --c-accent: 122 162 247;
+  --c-accent2: 157 184 251;
+  --c-pulse: 125 207 255;
+  --c-ink: 203 211 223;
+  --c-dim: 130 141 158;
+  --c-faint: 77 87 102;
+  --c-blood: 247 118 142;
+  --c-good: 158 206 106;
+  --c-auto: 74 95 132;
+  --c-ghost: 96 120 165;
+  --glow: rgba(122, 162, 247, 0.05);
+  --dot: rgba(130, 141, 158, 0.05);
+  --syn-keyword: #7aa2f7;
+  --syn-string: #9ece6a;
+  --syn-number: #ff9e64;
+  --syn-function: #7dcfff;
+  --syn-comment: #4d5766;
+  --syn-class: #bb9af7;
+  --syn-operator: #828d9e;
+  --syn-punct: #697098;
+  --syn-bool: #f7768e;
+  --syn-base: #a9b1d6;
+}
+
 :root[data-theme='obsidian'] {
-  --c-bg: 11 15 25;
-  --c-panel: 15 23 42;
-  --c-panel2: 17 26 46;
-  --c-edge: 30 41 59;
-  --c-edge2: 39 54 77;
+  --c-bg: 12 12 14;
+  --c-panel: 18 18 21;
+  --c-panel2: 24 24 28;
+  --c-edge: 40 40 46;
+  --c-edge2: 56 56 64;
   --c-accent: 250 204 21;
   --c-accent2: 253 224 71;
-  --c-pulse: 56 189 248;
-  --c-ink: 226 232 240;
-  --c-dim: 100 116 139;
-  --c-faint: 71 85 105;
+  --c-pulse: 212 218 228;
+  --c-ink: 235 236 238;
+  --c-dim: 148 152 160;
+  --c-faint: 96 99 108;
   --c-blood: 248 113 113;
-  --c-good: 52 211 153;
-  --c-auto: 61 76 102;
-  --c-ghost: 85 104 138;
-  --glow: rgba(56, 189, 248, 0.06);
-  --dot: rgba(148, 163, 184, 0.055);
-  --syn-keyword: #38bdf8;
-  --syn-string: #fbbf24;
-  --syn-number: #f472b6;
-  --syn-function: #a5b4fc;
-  --syn-comment: #4b5a72;
-  --syn-class: #34d399;
-  --syn-operator: #7d8ea8;
-  --syn-punct: #5b6b84;
-  --syn-bool: #fb923c;
-  --syn-base: #8b9bb4;
+  --c-good: 163 204 60;
+  --c-auto: 90 94 104;
+  --c-ghost: 120 124 134;
+  --glow: rgba(250, 204, 21, 0.05);
+  --dot: rgba(200, 204, 214, 0.05);
+  --syn-keyword: #facc15;
+  --syn-string: #e2e8f0;
+  --syn-number: #fbbf24;
+  --syn-function: #d4dae4;
+  --syn-comment: #565a64;
+  --syn-class: #fde047;
+  --syn-operator: #9498a0;
+  --syn-punct: #6b7078;
+  --syn-bool: #f87171;
+  --syn-base: #b4b8c2;
 }
 
 :root[data-theme='phantom'] {
@@ -64,63 +94,93 @@
 }
 
 :root[data-theme='paper'] {
-  --c-bg: 238 242 246;
-  --c-panel: 255 255 255;
-  --c-panel2: 248 250 252;
-  --c-edge: 203 213 225;
-  --c-edge2: 148 163 184;
-  --c-accent: 180 83 9;
-  --c-accent2: 146 64 14;
-  --c-pulse: 3 105 161;
-  --c-ink: 15 23 42;
-  --c-dim: 71 85 105;
-  --c-faint: 100 116 139;
-  --c-blood: 220 38 38;
-  --c-good: 4 120 87;
+  --c-bg: 232 237 243;
+  --c-panel: 244 247 250;
+  --c-panel2: 238 242 247;
+  --c-edge: 201 212 224;
+  --c-edge2: 168 184 201;
+  --c-accent: 47 95 168;
+  --c-accent2: 35 72 128;
+  --c-pulse: 14 116 144;
+  --c-ink: 28 39 51;
+  --c-dim: 91 107 125;
+  --c-faint: 147 163 179;
+  --c-blood: 199 62 81;
+  --c-good: 46 125 91;
   --c-auto: 182 194 209;
-  --c-ghost: 148 163 184;
-  --glow: rgba(3, 105, 161, 0.05);
-  --dot: rgba(15, 23, 42, 0.06);
-  --syn-keyword: #0369a1;
-  --syn-string: #b45309;
-  --syn-number: #be185d;
-  --syn-function: #4338ca;
-  --syn-comment: #94a3b8;
-  --syn-class: #047857;
-  --syn-operator: #475569;
-  --syn-punct: #64748b;
-  --syn-bool: #c2410c;
-  --syn-base: #475569;
+  --c-ghost: 168 184 201;
+  --glow: rgba(47, 95, 168, 0.06);
+  --dot: rgba(28, 39, 51, 0.06);
+  --syn-keyword: #2f5fa8;
+  --syn-string: #b3541e;
+  --syn-number: #9d4466;
+  --syn-function: #0e7490;
+  --syn-comment: #9aa8b8;
+  --syn-class: #2e7d5b;
+  --syn-operator: #5b6b7d;
+  --syn-punct: #8494a6;
+  --syn-bool: #c73e51;
+  --syn-base: #3d4c5e;
 }
 
 :root[data-theme='bone'] {
-  --c-bg: 243 239 230;
-  --c-panel: 251 249 244;
-  --c-panel2: 246 242 233;
-  --c-edge: 216 208 189;
-  --c-edge2: 179 166 137;
-  --c-accent: 146 64 14;
-  --c-accent2: 120 53 15;
-  --c-pulse: 15 118 110;
-  --c-ink: 28 25 23;
-  --c-dim: 87 83 78;
-  --c-faint: 120 113 108;
-  --c-blood: 220 38 38;
-  --c-good: 4 120 87;
+  --c-bg: 239 231 220;
+  --c-panel: 248 243 234;
+  --c-panel2: 240 233 221;
+  --c-edge: 217 205 187;
+  --c-edge2: 188 174 151;
+  --c-accent: 158 72 44;
+  --c-accent2: 122 53 32;
+  --c-pulse: 122 92 62;
+  --c-ink: 43 38 34;
+  --c-dim: 119 105 92;
+  --c-faint: 162 147 127;
+  --c-blood: 178 58 58;
+  --c-good: 95 122 68;
   --c-auto: 214 207 192;
-  --c-ghost: 168 162 158;
-  --glow: rgba(15, 118, 110, 0.05);
-  --dot: rgba(28, 25, 23, 0.07);
-  --syn-keyword: #0f766e;
-  --syn-string: #b45309;
-  --syn-number: #be185d;
-  --syn-function: #4338ca;
-  --syn-comment: #a8a29e;
-  --syn-class: #15803d;
-  --syn-operator: #57534e;
-  --syn-punct: #78716c;
-  --syn-bool: #c2410c;
-  --syn-base: #57534e;
+  --c-ghost: 176 166 148;
+  --glow: rgba(158, 72, 44, 0.06);
+  --dot: rgba(43, 38, 34, 0.07);
+  --syn-keyword: #9e482c;
+  --syn-string: #6b5b2e;
+  --syn-number: #8a4a62;
+  --syn-function: #7a5c3e;
+  --syn-comment: #b3a68f;
+  --syn-class: #5f7a44;
+  --syn-operator: #6e6154;
+  --syn-punct: #94876f;
+  --syn-bool: #b23a3a;
+  --syn-base: #4e453b;
+}
+
+:root[data-theme='mist'] {
+  --c-bg: 228 230 223;
+  --c-panel: 238 240 233;
+  --c-panel2: 230 233 225;
+  --c-edge: 205 211 198;
+  --c-edge2: 169 179 160;
+  --c-accent: 58 79 55;
+  --c-accent2: 44 61 43;
+  --c-pulse: 146 111 53;
+  --c-ink: 69 74 66;
+  --c-dim: 138 145 130;
+  --c-faint: 179 185 171;
+  --c-blood: 176 86 76;
+  --c-good: 79 107 60;
+  --c-auto: 190 194 182;
+  --c-ghost: 160 169 152;
+  --glow: rgba(58, 79, 55, 0.06);
+  --dot: rgba(69, 74, 66, 0.07);
+  --syn-keyword: #3a4f37;
+  --syn-string: #8a6d3b;
+  --syn-number: #8f5a72;
+  --syn-function: #4a6b5d;
+  --syn-comment: #a4aa9c;
+  --syn-class: #6b7f3e;
+  --syn-operator: #757c70;
+  --syn-punct: #98a093;
+  --syn-bool: #b0564c;
+  --syn-base: #4a5046;
 }
 
 html,
@@ -164,7 +224,7 @@ body {
 
 @layer components {
   .hud-card {
-    @apply relative border border-edge bg-panel/70 backdrop-blur-[2px];
+    @apply relative rounded-lg border border-edge bg-panel/80 shadow-[0_10px_36px_-20px_rgba(0,0,0,0.65)] backdrop-blur-[2px];
   }
 
   .hud-label {
@@ -176,7 +236,7 @@ body {
   }
 
   .chip {
-    @apply cursor-pointer select-none border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors duration-100;
+    @apply cursor-pointer select-none rounded-md border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors duration-100;
   }
 
   .chip-off {
