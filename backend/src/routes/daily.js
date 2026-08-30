@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { dailySnippet, todayStr } from '../../../shared/daily.js';
 import { storeFor } from '../store/supaStore.js';
+import { queryInt } from '../middleware/sanitize.js';
 
 const router = Router();
 
@@ -23,13 +24,16 @@ router.get('/', ah(async (req, res) => {
   const date = todayStr();
   const sn = dailySnippet(date);
   const store = await storeFor(req);
-  // Push the daily + snippet filters into the store (.eq) — one targeted
-  // fetch for today's challenge runs, plus the full set for the streak.
-  const [dailyRuns, all] = await Promise.all([
-    store.query({ daily: true, snippetId: sn.id, limit: 500 }),
-    store.all()
-  ]);
-  const todayRuns = dailyRuns.filter((s) => localDate(s.createdAt) === date);
+  const limit = queryInt(req.query.limit, { min: 1, max: 1000, fallback: 500 });
+
+  // ONE targeted query instead of the previous two: pull only this user's
+  // DAILY runs (indexed by sessions_user_daily_idx) and derive both today's
+  // runs and the streak from that single, small result set. It used to fetch
+  // the daily+snippet rows *and* the user's entire history (up to 500 rows of
+  // every mode) just to count distinct daily dates.
+  const dailyRuns = await store.query({ daily: true, limit });
+
+  const todayRuns = dailyRuns.filter((s) => s.snippetId === sn.id && localDate(s.createdAt) === date);
   const top = [...todayRuns]
     .sort((a, b) => b.wpm - a.wpm)
     .slice(0, 5)
@@ -39,7 +43,8 @@ router.get('/', ah(async (req, res) => {
       accuracy: s.accuracy,
       timeSec: s.timeSec
     }));
-  const dailyDates = new Set(all.filter((s) => s.daily).map((s) => localDate(s.createdAt)));
+
+  const dailyDates = new Set(dailyRuns.map((s) => localDate(s.createdAt)));
   let streak = 0;
   const d = new Date();
   if (!dailyDates.has(todayStr(d))) d.setDate(d.getDate() - 1);
@@ -47,6 +52,7 @@ router.get('/', ah(async (req, res) => {
     streak += 1;
     d.setDate(d.getDate() - 1);
   }
+
   res.json({
     date,
     snippetId: sn.id,

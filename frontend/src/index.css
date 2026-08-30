@@ -492,3 +492,15 @@ a:hover {
   letter-spacing: 0.2em;
   color: rgb(var(--c-faint) / 0.45);
 }
+/* Right-hand ad rail on the marketing pages (mirrors the 300px left rail on
+   the training arena). Sticks while the article scrolls on wide screens and
+   centres itself once it drops below the copy on narrow ones. */
+.ad-rail {
+  display: flex;
+  justify-content: center;
+}
+@media (min-width: 1024px) {
+  .ad-rail {
+    justify-content: flex-end;
+  }
+}

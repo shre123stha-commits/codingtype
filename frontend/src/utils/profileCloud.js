@@ -5,12 +5,14 @@
 // mirrored to a public.profiles row (one per user, RLS-protected). Cloud
 // values win on login; if the cloud row is missing/empty the device values
 // are pushed up.
-import { supabase } from './supabase.js';
+import { authAvailable, getSupabase, hasStoredSession } from './supabase.js';
 import { useGameStore } from '../store/gameStore.js';
 
 let syncing = null; // mutex so overlapping session events don't race
 
 async function currentUser() {
+  // Never pulls the SDK in for a guest — see utils/supabase.js.
+  const supabase = await getSupabase();
   if (!supabase) return null;
   try {
     const { data } = await supabase.auth.getSession();
@@ -23,6 +25,8 @@ async function currentUser() {
 export async function pullProfile() {
   const user = await currentUser();
   if (!user) return null;
+  const supabase = await getSupabase();
+  if (!supabase) return null;
   try {
     const { data } = await supabase
       .from('profiles')
@@ -39,6 +43,8 @@ export async function pullProfile() {
 export async function pushProfile(name, avatar) {
   const user = await currentUser();
   if (!user) return;
+  const supabase = await getSupabase();
+  if (!supabase) return;
   try {
     await supabase
       .from('profiles')
@@ -58,7 +64,9 @@ export async function pushProfile(name, avatar) {
 
 // Merge cloud + device profile into the store after any session change.
 export function syncProfileForSession() {
-  if (!supabase) return Promise.resolve();
+  // A guest has nothing to sync; bailing here (synchronously) is what keeps
+  // the Supabase SDK out of a guest's download entirely.
+  if (!authAvailable || !hasStoredSession()) return Promise.resolve();
   if (syncing) return syncing;
   syncing = (async () => {
     try {
