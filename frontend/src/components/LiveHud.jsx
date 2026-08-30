@@ -30,6 +30,27 @@ function Cell({ label, value, tone = 'text-ink', size = 'text-lg' }) {
   );
 }
 
+// One live setting, one chip, one precise hover explanation.
+function HudToggle({ label, on, onToggle, tip }) {
+  return (
+    <span className="group/tip relative inline-flex">
+      <button
+        type="button"
+        onClick={onToggle}
+        title={tip}
+        aria-pressed={on}
+        className={`chip !px-2 !py-0.5 !text-[9px] ${on ? 'chip-on-amber' : 'chip-off'}`}
+      >
+        <span className="mr-1" aria-hidden="true">{on ? '●' : '○'}</span>
+        {label}
+      </button>
+      <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-40 hidden w-60 -translate-x-1/2 border border-edge bg-panel2 px-2.5 py-2 text-left text-[9px] font-normal leading-relaxed tracking-[0.03em] text-dim shadow-xl shadow-black/40 group-hover/tip:block">
+        {tip}
+      </span>
+    </span>
+  );
+}
+
 export default function LiveHud() {
   const now = useClock();
   const status = useGameStore((s) => s.status);
@@ -43,6 +64,11 @@ export default function LiveHud() {
   const strictMode = useGameStore((s) => s.strictMode);
   const ghostMode = useGameStore((s) => s.ghostMode);
   const indentAssist = useGameStore((s) => s.indentAssist);
+  const blind = useGameStore((s) => s.blind);
+  const setStrictMode = useGameStore((s) => s.setStrictMode);
+  const setGhostMode = useGameStore((s) => s.setGhostMode);
+  const setIndentAssist = useGameStore((s) => s.setIndentAssist);
+  const cycleBlind = useGameStore((s) => s.cycleBlind);
   const raceGhost = useGameStore((s) => s.raceGhost);
 
   let ghostDelta = null;
@@ -82,10 +108,32 @@ export default function LiveHud() {
         <Cell label="ERR" value={errorCount} tone={errorCount > 0 ? 'text-blood' : 'text-dim'} size="text-sm" />
         <Cell label="PROG" value={`${progress}%`} tone="text-dim" size="text-sm" />
 
-        <div className="ml-auto hidden items-center gap-2 md:flex">
-          <Flag on={strictMode} label="STRICT" />
-          <Flag on={ghostMode} label="GHOST" />
-          <Flag on={indentAssist} label="ASSIST" />
+        {/* Live settings — click to change mid-run, hover for what each does */}
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          <HudToggle
+            label="STRICT"
+            on={strictMode}
+            onToggle={() => setStrictMode(!strictMode)}
+            tip="STRICT — a wrong key locks the pointer; only the exact right key advances. Off = NATURAL: errors mark inline in soft red and the run keeps flowing."
+          />
+          <HudToggle
+            label="GHOST"
+            on={ghostMode}
+            onToggle={() => setGhostMode(!ghostMode)}
+            tip="GHOST PAIRS — closing brackets ] } ) render faint, so you type them from memory and they snap in. Off = brackets are typed like every other character."
+          />
+          <HudToggle
+            label="ASSIST"
+            on={indentAssist}
+            onToggle={() => setIndentAssist(!indentAssist)}
+            tip="INDENT ASSIST — after Enter, the next line's indent auto-fills and waits; press space or Tab to accept it. Off = you type every indent space yourself."
+          />
+          <HudToggle
+            label={blind === null ? 'BLIND' : blind === 3 ? 'BLIND 3CH' : 'BLIND FULL'}
+            on={blind !== null}
+            onToggle={cycleBlind}
+            tip="BLIND — hides the code ahead of your caret to train from memory. Click to cycle: off → 3-character window → fully hidden."
+          />
           {ghostDelta !== null ? (
             <span
               className={`rounded border px-2 py-0.5 text-[9px] font-semibold tabular-nums tracking-[0.14em] ${
@@ -101,17 +149,5 @@ export default function LiveHud() {
         </div>
       </div>
     </div>
-  );
-}
-
-function Flag({ on, label }) {
-  return (
-    <span
-      className={`border px-2 py-0.5 text-[9px] font-semibold tracking-[0.18em] ${
-        on ? 'border-accent/50 bg-accent/10 text-accent' : 'border-edge text-faint'
-      }`}
-    >
-      {label}
-    </span>
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../utils/api.js';
+import { track } from '../utils/analytics.js';
 import { SNIPPETS } from '../data/snippets.js';
 import { ghostPointsFrom } from '../utils/ghostRace.js';
 import { useGameStore } from '../store/gameStore.js';
@@ -82,6 +83,12 @@ export function useSessionPost() {
     if (postedRunIds.has(lastRun.id)) return;
     postedRunIds.add(lastRun.id);
     api.saveSession(lastRun).catch(() => {});
+    track('session_complete', {
+      mode: lastRun.mode,
+      language: lastRun.language,
+      wpm: lastRun.wpm,
+      accuracy: lastRun.accuracy
+    });
   }, [apiOnline, lastRun]);
 }
 

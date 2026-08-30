@@ -26,14 +26,14 @@ function Countdown({ at }) {
   const n = Math.ceil(left / 1000);
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-obsidian/85 backdrop-blur-[2px]">
-      <div className="text-[10px] tracking-[0.3em] text-dim">SYNC START</div>
+      <div className="text-[10px] tracking-[0.3em] text-dim">SYNC START — SAME TARGET FOR BOTH PLAYERS</div>
       <div
         className="mt-2 text-7xl font-bold tabular-nums text-pulse"
         style={{ textShadow: '0 0 30px rgb(var(--c-pulse) / 0.6)' }}
       >
-        {n > 0 ? n : 'GO'}
+        {n > 0 ? n : 'START!'}
       </div>
-      <div className="mt-3 text-[10px] tracking-[0.24em] text-faint">SAME TARGET FOR BOTH PLAYERS</div>
+      <div className="mt-3 text-[10px] tracking-[0.24em] text-faint">KEYS UNLOCK AT START</div>
     </div>
   );
 }
@@ -72,12 +72,15 @@ function GhostRaceCard({ raceState }) {
   const pbests = usePbestSnippets();
   const loadSnippet = useGameStore((s) => s.loadSnippet);
   const status = useGameStore((s) => s.status);
+  const raceGhost = useGameStore((s) => s.raceGhost);
   const [pick, setPick] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [noPbMsg, setNoPbMsg] = useState(false);
   const autoRef = useRef(false);
   const seqRef = useRef(0);
 
   const selected = pbests?.find((p) => p.snippetId === pick) || pbests?.[0] || null;
+  const started = Boolean(raceGhost); // ghost loaded in the arena = race started
 
   const start = async (target) => {
     const t = target || selected;
@@ -110,43 +113,62 @@ function GhostRaceCard({ raceState }) {
 
   return (
     <HudCard label="GHOST RACE" right={<span className="hud-label">VS PAST SELF</span>}>
-      {!pbests || pbests.length === 0 ? (
-        <p className="py-2 text-[10px] leading-relaxed tracking-[0.08em] text-faint">
-          NO PRACTICE DATA YET.
-          <br />
-          DO A PRACTICE SESSION IN <span className="text-dim">TRAIN</span> FIRST — YOUR BEST RUN BECOMES YOUR GHOST.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          <select
-            value={selected?.snippetId || ''}
-            onChange={(e) => {
-              setPick(e.target.value);
-              const t = pbests.find((p) => p.snippetId === e.target.value);
-              if (t) start(t);
-            }}
-            className="w-full border border-edge bg-panel2 px-2 py-1.5 text-[10px] tracking-[0.06em] text-ink focus:border-accent focus:outline-none"
-            aria-label="ghost target"
-          >
-            {pbests.map((p) => (
-              <option key={p.snippetId} value={p.snippetId}>
-                {p.title} — {p.wpm} WPM PB
-              </option>
-            ))}
-          </select>
-          {selected ? (
-            <p className="text-[9px] tracking-[0.08em] text-faint">
-              PB: {selected.wpm} WPM · {selected.timeSec}s · {Math.round(selected.accuracy)}% ACC
-            </p>
-          ) : null}
-          <button type="button" onClick={() => start()} disabled={busy} className="chip chip-on-cyan w-full py-2 text-[10px] disabled:opacity-40">
-            ▶ START GHOST RACE
-          </button>
-          <p className="text-[9px] leading-relaxed tracking-[0.06em] text-faint">
-            AUTO-LOADS ON ARRIVAL — PICK A PB OR PRESS START TO (RE)LOAD IT.
+      <div className="space-y-2">
+        {pbests && pbests.length > 0 ? (
+          <>
+            <select
+              value={selected?.snippetId || ''}
+              onChange={(e) => {
+                setPick(e.target.value);
+                const t = pbests.find((p) => p.snippetId === e.target.value);
+                if (t) start(t);
+              }}
+              className="w-full border border-edge bg-panel2 px-2 py-1.5 text-[10px] tracking-[0.06em] text-ink focus:border-accent focus:outline-none"
+              aria-label="ghost target"
+            >
+              {pbests.map((p) => (
+                <option key={p.snippetId} value={p.snippetId}>
+                  {p.title} — {p.wpm} WPM PB
+                </option>
+              ))}
+            </select>
+            {selected ? (
+              <p className="text-[9px] tracking-[0.08em] text-faint">
+                PB: {selected.wpm} WPM · {selected.timeSec}s · {Math.round(selected.accuracy)}% ACC
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="py-1 text-[10px] leading-relaxed tracking-[0.08em] text-faint">
+            NO PRACTICE DATA YET — YOUR FIRST FINISHED RUN BECOMES YOUR GHOST.
           </p>
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            if (!pbests || pbests.length === 0) {
+              setNoPbMsg(true);
+              return;
+            }
+            setNoPbMsg(false);
+            start();
+          }}
+          disabled={busy}
+          className={`chip w-full py-2 text-[10px] disabled:opacity-40 ${started ? 'chip-on-amber' : 'chip-on-cyan'}`}
+        >
+          {started ? '✓ GHOST RACE STARTED' : '▶ START GHOST RACE'}
+        </button>
+        {noPbMsg && (!pbests || pbests.length === 0) ? (
+          <p className="border border-blood/50 bg-blood/10 px-2.5 py-2 text-[9px] font-semibold leading-relaxed tracking-[0.1em] text-blood">
+            NO BEST TIME RECORDED YET — DO A PRACTICE SESSION IN TRAIN AND FINISH A RUN FIRST. YOUR BEST RUN BECOMES THE GHOST.
+          </p>
+        ) : null}
+        <p className="text-[9px] leading-relaxed tracking-[0.06em] text-faint">
+          {pbests && pbests.length > 0
+            ? 'AUTO-LOADS ON ARRIVAL — PICK A PB OR PRESS START TO (RE)LOAD IT.'
+            : 'THIS BUTTON UNLOCKS THE MOMENT YOU HAVE A FINISHED RUN.'}
+        </p>
+      </div>
     </HudCard>
   );
 }
@@ -371,10 +393,12 @@ export default function RaceView() {
   const [card, setCard] = useState(null); // { title, canvas, text } — flash card modal
   const theme = useGameStore((s) => s.theme);
   const authUser = useGameStore((s) => s.authUser);
+  const profileName = useGameStore((s) => s.profileName);
   const lastRun = useGameStore((s) => s.lastRun);
   const raceGhost = useGameStore((s) => s.raceGhost);
   const daily = useDaily();
-  const handle = (authUser ? String(authUser).split('@')[0] : 'GUEST').toUpperCase();
+  // race cards show the display name when the user has set one
+  const handle = (profileName || (authUser ? String(authUser).split('@')[0] : 'GUEST')).toUpperCase();
   const ghostBeaten = raceGhost && lastRun?.stats ? lastRun.stats.timeSec < raceGhost.timeSec : null;
 
   const openCard = (c) => setCard(c);
@@ -468,6 +492,16 @@ export default function RaceView() {
     if (race.state === 'idle' && !race.joinError) setPanel('menu');
     if (race.state === 'waiting') setPanel((p) => (p === 'create' || p === 'join' ? p : 'menu'));
   }, [race.state, race.joinError]);
+
+  // Hold the "START!" flash up for 700ms after GO so both players actually
+  // see it (the countdown overlay would otherwise unmount at zero).
+  const [startFlash, setStartFlash] = useState(false);
+  useEffect(() => {
+    if (race.state !== 'racing' || !race.raceStartAt) return;
+    setStartFlash(true);
+    const id = setTimeout(() => setStartFlash(false), 700);
+    return () => clearTimeout(id);
+  }, [race.state, race.raceStartAt]);
 
   const inRace = race.state === 'countdown' || race.state === 'racing';
   const total = inRace || race.state === 'done' ? snippet?.charCount || 0 : 0;
@@ -599,7 +633,7 @@ export default function RaceView() {
               <li>• JOIN → ENTER A CODE TO ENTER THAT LOBBY</li>
               <li>• 2 SLOT LOBBY — FULL ONCE A RIVAL JOINS</li>
               <li>• CODES EXPIRE 15 MIN AFTER CREATION</li>
-              <li>• 4-SECOND SYNCED START — FIRST TO FINISH WINS</li>
+              <li>• 3-SECOND COUNTDOWN — 3 · 2 · 1 · START, SYNCED FOR BOTH</li>
             </ul>
           </div>
         </HudCard>
@@ -621,7 +655,7 @@ export default function RaceView() {
           </HudCard>
         ) : null}
         <div className="relative">
-          {race.state === 'countdown' && race.countdownAt ? <Countdown at={race.countdownAt} /> : null}
+          {(race.state === 'countdown' && race.countdownAt) || startFlash ? <Countdown at={race.countdownAt} /> : null}
           {status !== 'finished' ? (
             <TypingArena captureRef={captureRef} />
           ) : race.state === 'done' && race.result ? (

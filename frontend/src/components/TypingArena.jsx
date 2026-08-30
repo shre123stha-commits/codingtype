@@ -45,6 +45,8 @@ export default function TypingArena({ captureRef }) {
   const pendingIndent = useGameStore((s) => s.pendingIndent);
   const status = useGameStore((s) => s.status);
   const blind = useGameStore((s) => s.blind);
+  const autoPaused = useGameStore((s) => s.autoPaused);
+  const togglePause = useGameStore((s) => s.togglePause);
   const raceGhost = useGameStore((s) => s.raceGhost);
   const rival = useGameStore((s) => s.rival);
   const [ghostPos, setGhostPos] = useState(0);
@@ -175,8 +177,20 @@ export default function TypingArena({ captureRef }) {
         {status === 'paused' ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-obsidian/80 backdrop-blur-[2px]">
             <div className="text-center">
-              <div className="text-xl font-bold tracking-[0.3em] text-pulse">PAUSED</div>
-              <div className="mt-2 text-[10px] tracking-[0.24em] text-dim">PRESS ESC TO RESUME</div>
+              <div className={`text-xl font-bold tracking-[0.3em] ${autoPaused ? 'text-accent' : 'text-pulse'}`}>
+                {autoPaused ? 'AUTO-PAUSED' : 'PAUSED'}
+              </div>
+              <div className="mt-2 text-[10px] tracking-[0.24em] text-dim">
+                {autoPaused ? 'NO KEYS FOR 5 SECONDS — CLOCK IS STOPPED' : 'CLOCK IS STOPPED'}
+              </div>
+              <button
+                type="button"
+                onClick={() => togglePause(Date.now())}
+                className="chip chip-on-amber mt-4 py-2 text-[10px]"
+              >
+                ▶ RESUME TEST
+              </button>
+              <div className="mt-2 text-[9px] tracking-[0.2em] text-faint">OR PRESS ESC</div>
             </div>
           </div>
         ) : null}

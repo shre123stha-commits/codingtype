@@ -15,9 +15,12 @@ import {
 
 // The 08 · FLASH CARDS deck tab — the standalone profile flash-card feature.
 // Renders your career feats onto a 1080x1350 share card (PNG / copy / X).
+// Your profile name + photo (when set) are baked straight into the card.
 export default function FlashCardsView() {
   const authUser = useGameStore((s) => s.authUser);
   const theme = useGameStore((s) => s.theme);
+  const profileName = useGameStore((s) => s.profileName);
+  const profileAvatar = useGameStore((s) => s.profileAvatar);
   const daily = useDaily();
   const [sessions, setSessions] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -25,6 +28,8 @@ export default function FlashCardsView() {
   const [copied, setCopied] = useState(null);
   const [busy, setBusy] = useState(false);
   const previewRef = useRef(null);
+
+  const profileId = useMemo(() => ({ name: profileName, avatar: profileAvatar }), [profileName, profileAvatar]);
 
   useEffect(() => {
     let live = true;
@@ -47,7 +52,7 @@ export default function FlashCardsView() {
     if (!sessions) return undefined;
     let live = true;
     setBusy(true);
-    const p = buildProfile({ sessions, authUser, streak });
+    const p = buildProfile({ sessions, authUser, streak, profile: profileId });
     setProfile(p);
     renderProfileCard(p, theme)
       .then((c) => {
@@ -67,7 +72,7 @@ export default function FlashCardsView() {
     return () => {
       live = false;
     };
-  }, [sessions, authUser, streak, theme]);
+  }, [sessions, authUser, streak, theme, profileId]);
 
   const shareText = useMemo(() => (profile ? profileShareText(profile) : ''), [profile]);
 
@@ -114,7 +119,8 @@ export default function FlashCardsView() {
         {busy ? <span className="sr-only">rendering</span> : null}
       </div>
       <p className="text-[10px] leading-relaxed tracking-[0.08em] text-dim">
-        YOUR CAREER FEATS, RENDERED AS A <span className="text-accent">SHARE CARD</span> — ONE PNG FOR X, DISCORD OR LINKEDIN.
+        YOUR CAREER FEATS, RENDERED AS A <span className="text-accent">SHARE CARD</span> — ONE PNG FOR X, DISCORD OR LINKIN.
+        {profileName || profileAvatar ? ' YOUR NAME + PHOTO ARE ON THE CARD.' : ''}
       </p>
       <div className="grid grid-cols-1 gap-1.5">
         <button type="button" disabled={!card || busy} onClick={() => card && downloadCanvas(card, `codetype-profile-${stamp()}.png`)} className="chip chip-on-amber whitespace-nowrap py-2 text-[10px] disabled:opacity-40">

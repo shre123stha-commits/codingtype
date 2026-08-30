@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://codetype-eight.vercel.app/sitemap.xml

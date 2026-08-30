@@ -60,7 +60,7 @@ await page.waitForSelector('text=CONTROL DECK', { timeout: 15000 });
 await page.waitForTimeout(600);
 
 // 1. FEATURES menu → FLASH CARDS
-await click(page.locator('nav button:has-text("FEATURES")'));
+await click(page.locator('header nav button:has-text("FEATURES")'));
 await page.waitForTimeout(300);
 ok('features menu lists FLASH CARDS', (await page.locator('[role="menu"] button:has-text("FLASH CARDS")').count()) === 1);
 await click(page.locator('[role="menu"] button:has-text("FLASH CARDS")'));
@@ -104,7 +104,7 @@ ok(`flash tab: action buttons not squashed (w=${Math.round(btnRect?.width ?? 0)}
 await shot(page, 'fc-profile-tab.png');
 
 // 2. deck tab 08 directly clickable
-await click(page.locator('nav button:has-text("TRAIN")'));
+await click(page.locator('header nav button:has-text("TRAIN")'));
 await page.waitForTimeout(500);
 await click(page.locator('nav[aria-label="control deck sections"] button[title="FLASH CARDS"]'));
 await previewCanvas.waitFor({ state: 'visible', timeout: 10000 });
@@ -118,7 +118,7 @@ const dl = await dlPromise;
 ok('flash tab: PNG download fires', dl !== null);
 
 // 4. full bot race through the UI
-await click(page.locator('nav button:has-text("RACE")'));
+await click(page.locator('header nav button:has-text("RACE")'));
 await page.waitForTimeout(600);
 await click(page.locator('button:has-text("CREATE RACE")').first());
 await page.waitForTimeout(300);
@@ -162,24 +162,24 @@ await shot(page, 'fc-race-result.png');
 // race flash card modal
 await page.locator('button:has-text("⚡ RACE FLASH CARD")').click();
 await page.waitForTimeout(1200);
-let dlg = page.locator('[role="dialog"]');
+let dlg = page.locator('[role="dialog"][aria-label^="share card"]');
 ok('race card: modal opens', (await dlg.count()) === 1);
 ok('race card: PNG preview in modal', (await dlg.locator('img[src^="data:image/png"]').count()) === 1);
 ok('race card: share actions present',
   (await dlg.locator('button:has-text("⤓ DOWNLOAD PNG")').count()) === 1 &&
   (await dlg.locator('button:has-text("𝕏 POST ON X")').count()) === 1);
 await shot(page, 'fc-race-card-modal.png');
-await page.locator('[role="dialog"] button[aria-label="close card"]').click();
+await page.locator('[role="dialog"][aria-label^="share card"] button[aria-label="close card"]').click();
 await page.waitForTimeout(400);
-ok('race card: modal closes', (await page.locator('[role="dialog"]').count()) === 0);
+ok('race card: modal closes', (await page.locator('[role="dialog"][aria-label^="share card"]').count()) === 0);
 
 // direct result share modal
 await page.locator('button:has-text("⇗ SHARE RESULT")').click();
 await page.waitForTimeout(1200);
-dlg = page.locator('[role="dialog"]');
+dlg = page.locator('[role="dialog"][aria-label^="share card"]');
 ok('result card: modal opens with PNG', (await dlg.count()) === 1 && (await dlg.locator('img[src^="data:image/png"]').count()) === 1);
 await shot(page, 'fc-result-card-modal.png');
-await page.locator('[role="dialog"] button[aria-label="close card"]').click();
+await page.locator('[role="dialog"][aria-label^="share card"] button[aria-label="close card"]').click();
 await page.waitForTimeout(400);
 
 console.log('--- errors ---');

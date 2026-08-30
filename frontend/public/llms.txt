@@ -1,0 +1,19 @@
+# CodeType
+
+> Tactical typing telemetry for software developers. Type real production code — not lorem ipsum — and get live WPM, accuracy, per-key heatmaps and symbol-friction telemetry. Free, in the browser, no account required.
+
+## Pages
+
+- [Home / training arena](https://codetype-eight.vercel.app/): pick a language (Python, JavaScript, Java, C++, Rust, SQL) and a mode, then type real code snippets from `src/` paths.
+- [About](https://codetype-eight.vercel.app/about): what CodeType is and how its modes work.
+- [FAQ](https://codetype-eight.vercel.app/faq): five frequently asked questions (blind modes, data storage, pricing).
+- [Waitlist](https://codetype-eight.vercel.app/waitlist): one email per shipped feature, nothing else.
+- [Contact](https://codetype-eight.vercel.app/contact): operator email for bug reports and feature ideas.
+
+## Notes for LLMs
+
+- The app is a single-page React app; app views (TRAIN / RACE / ANALYTICS / PROFILE) are internal states on the home URL.
+- Free to use; guest data stays in the browser's localStorage. Optional email+password accounts sync stats to the user's own Supabase project (row-level security scoped to the owner).
+- Modes: TRAIN (full text or BLIND — hides characters ahead of the caret; 3CH shows three), RACE (1v1 human or vs. your personal-best "ghost"), ANALYTICS (per-key and per-symbol telemetry), PROFILE (identity + career stats + flash card).
+- Keyboard shortcuts: F1 or ? opens help (only while not typing), Esc closes dialogs.
+- Machine-readable extras: `https://codetype-eight.vercel.app/sitemap.xml`, `https://codetype-eight.vercel.app/robots.txt`, this file at `/llms.txt`.

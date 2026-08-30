@@ -367,3 +367,128 @@ body {
     color: var(--syn-bool);
   }
 }
+
+/* ============================================================
+   v1.8 — site pages, ad slots, cookie consent, hover polish
+   ============================================================ */
+
+/* --- generic hover states (buttons, chips, links) --- */
+button:not(:disabled) {
+  transition:
+    filter 0.15s ease,
+    transform 0.1s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+button:not(:disabled):hover {
+  filter: brightness(1.18);
+}
+button:not(:disabled):active {
+  transform: translateY(1px);
+}
+a {
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+a:hover {
+  color: rgb(var(--c-accent2));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --- in-flow site footer (sits above the fixed key legend) --- */
+.site-footer {
+  padding-bottom: 44px; /* clears the fixed key legend bar */
+}
+.site-footer a:hover,
+.site-footer .site-link:hover {
+  color: rgb(var(--c-accent2));
+}
+
+/* --- marketing pages --- */
+.site-page {
+  min-height: 60vh;
+}
+.card-lift {
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  border-color: rgb(var(--c-accent) / 0.4);
+}
+
+/* --- FAQ (details/summary) --- */
+.faq-item {
+  border: 1px solid rgb(var(--c-edge));
+  background: rgb(var(--c-panel));
+  padding: 14px 16px;
+}
+.faq-item[open] {
+  border-color: rgb(var(--c-accent) / 0.45);
+}
+.faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+.faq-item summary:hover {
+  color: rgb(var(--c-accent2));
+}
+.faq-x {
+  display: inline-block;
+  font-size: 14px;
+  transition: transform 0.15s ease;
+}
+.faq-item[open] .faq-x {
+  transform: rotate(45deg);
+}
+
+/* --- ad slots (reserved space for ad banners) --- */
+.ad-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgb(var(--c-edge2) / 0.55);
+  background: rgb(var(--c-panel) / 0.4);
+  overflow: hidden;
+}
+.ad-slot-label {
+  position: absolute;
+  top: 5px;
+  left: 8px;
+  font-size: 7px;
+  letter-spacing: 0.24em;
+  color: rgb(var(--c-faint) / 0.7);
+  pointer-events: none;
+}
+.ad-slot-board {
+  width: 100%;
+  max-width: 728px;
+  height: 90px;
+  margin: 0 auto;
+}
+.ad-slot-box {
+  width: 300px;
+  max-width: 100%;
+  height: 250px;
+}
+.ad-slot-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: rgb(var(--c-faint) / 0.45);
+}

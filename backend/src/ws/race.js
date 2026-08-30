@@ -3,7 +3,7 @@ import { WebSocketServer } from 'ws';
 import { SNIPPETS } from '../../../shared/snippets.js';
 
 const ROOM_TTL_MS = 15 * 60 * 1000;
-const COUNTDOWN_MS = 4000;
+const COUNTDOWN_MS = 3000; // 3-2-1-START, synced for both players
 const BOT_FILL_MS = 8000;
 const BOT_NAMES = ['CT-BOT-7', 'CT-BOT-12', 'CT-BOT-42'];
 const DURATIONS = new Set([0, 30, 60, 90]);
@@ -307,7 +307,7 @@ export function createRaceWs(server) {
     room.b = { ws, done: false, stats: null, finishedAt: 0, liveChars: 0 };
     send(ws, { type: 'joinResult', ok: true, code, room: summarizeRoom(room, ws) });
     send(room.a.ws, { type: 'lobby', room: summarizeRoom(room, room.a.ws) });
-    // both in — let the countdown run for 4s then race
+    // both in — 3-2-1-START countdown, synced for both players
     clearTimeout(room.expireTimer);
     if (room.botTimer) clearTimeout(room.botTimer);
     setTimeout(() => {

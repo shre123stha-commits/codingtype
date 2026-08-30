@@ -25,7 +25,10 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false,
+    // Production source maps are OFF by default (they expose the source code
+    // to anyone who downloads the bundle). Opt in per build when debugging:
+    //   VITE_SOURCEMAPS=1 npm run build
+    sourcemap: process.env.VITE_SOURCEMAPS === '1',
     chunkSizeWarningLimit: 900
   }
 });
