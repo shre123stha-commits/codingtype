@@ -53,8 +53,10 @@ export const api = {
       body: JSON.stringify(payload)
     });
   },
-  async sessions(limit = 12) {
-    return request(`/api/sessions?limit=${limit}`);
+  async sessions(limit = 12, cursor = null) {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', String(cursor));
+    return request(`/api/sessions?${params.toString()}`);
   },
   async pbests({ mode, language } = {}) {
     const params = new URLSearchParams();
@@ -77,8 +79,9 @@ export const api = {
   async pbest(snippetId) {
     return request(`/api/sessions/pbest/${encodeURIComponent(snippetId)}`);
   },
-  async pbestSnippets() {
-    return request('/api/sessions/pbest-snippets');
+  async pbestSnippets({ limit = 20, offset = 0 } = {}) {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    return request(`/api/sessions/pbest-snippets?${params.toString()}`);
   },
   async daily() {
     return request('/api/daily');

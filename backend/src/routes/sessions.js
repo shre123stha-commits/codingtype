@@ -71,10 +71,22 @@ router.post('/', ah(async (req, res) => {
   res.status(201).json({ id: row.id, createdAt: row.createdAt, store: store.kind });
 }));
 
+// Cursor-based pagination (newest-first by createdAt). The cursor is the
+// `createdAt` of the last item on the previous page; pass it back as `cursor`
+// to get the next page. `hasMore` is decided by over-fetching one row.
 router.get('/', ah(async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 20, 100);
-  const rows = await (await storeFor(req)).all();
-  res.json({ sessions: rows.slice(0, limit) });
+  const store = await storeFor(req);
+  const rawLimit = Number(req.query.limit);
+  const limit = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 20, 100));
+  const since = Number(req.query.cursor);
+  const rows = await store.query({
+    since: Number.isFinite(since) ? since : undefined,
+    limit: limit + 1 // +1 so we can tell whether another page exists
+  });
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = page.length ? page[page.length - 1].createdAt : null;
+  res.json({ sessions: page, nextCursor: hasMore ? nextCursor : null, hasMore, limit });
 }));
 
 router.get('/keystats', ah(async (req, res) => {
@@ -107,8 +119,10 @@ router.get('/fingerstats', ah(async (req, res) => {
 
 router.get('/benchmark/:snippetId', ah(async (req, res) => {
   const id = String(req.params.snippetId).slice(0, 80);
-  const times = (await (await storeFor(req)).all())
-    .filter((s) => s.snippetId === id && s.timeSec > 0)
+  // Filter pushed to the store (`.eq('snippet_id', …)`) instead of loading
+  // every session and filtering in JS.
+  const times = (await (await storeFor(req)).query({ snippetId: id, limit: 500 }))
+    .filter((s) => s.timeSec > 0)
     .map((s) => s.timeSec)
     .sort((a, b) => a - b);
   if (!times.length) return res.status(404).json({ error: 'no_runs' });
@@ -122,8 +136,9 @@ router.get('/benchmark/:snippetId', ah(async (req, res) => {
 router.get('/pbest/:snippetId', ah(async (req, res) => {
   const id = String(req.params.snippetId).slice(0, 80);
   let best = null;
-  for (const s of await (await storeFor(req)).all()) {
-    if (s.snippetId !== id || !Array.isArray(s.charTimes) || !s.charTimes.length || !s.timeSec) continue;
+  // `.eq('snippet_id', …)` — only this snippet's runs come back from the store.
+  for (const s of await (await storeFor(req)).query({ snippetId: id, limit: 500 })) {
+    if (!Array.isArray(s.charTimes) || !s.charTimes.length || !s.timeSec) continue;
     if (!best || s.timeSec < best.timeSec) best = s;
   }
   if (!best) return res.status(404).json({ error: 'no_pb' });
@@ -136,6 +151,8 @@ router.get('/pbest/:snippetId', ah(async (req, res) => {
   });
 }));
 
+// Group-by-snippet aggregation (needs the full set of the user's runs), then
+// offset-paginated on output — default 20 per page.
 router.get('/pbest-snippets', ah(async (req, res) => {
   const best = new Map();
   for (const s of await (await storeFor(req)).all()) {
@@ -155,15 +172,26 @@ router.get('/pbest-snippets', ah(async (req, res) => {
       });
     }
   }
-  res.json({ snippets: [...best.values()].sort((a, b) => b.createdAt - a.createdAt) });
+  const all = [...best.values()].sort((a, b) => b.createdAt - a.createdAt);
+  const limit = Math.max(1, Math.min(Number(req.query.limit) || 20, 100));
+  const offset = Math.max(0, Number(req.query.offset) || 0);
+  res.json({
+    snippets: all.slice(offset, offset + limit),
+    total: all.length,
+    limit,
+    offset
+  });
 }));
 
 router.get('/pbests', ah(async (req, res) => {
   const { mode, language } = req.query;
   const best = new Map();
-  for (const s of await (await storeFor(req)).all()) {
-    if (mode && s.mode !== mode) continue;
-    if (language && s.language !== language) continue;
+  // mode/language filters pushed to the store (.eq) instead of a JS filter.
+  for (const s of await (await storeFor(req)).query({
+    mode: mode ? String(mode).slice(0, 24) : undefined,
+    language: language ? String(language).slice(0, 24) : undefined,
+    limit: 500
+  })) {
     const key = `${s.mode}|${s.language}`;
     const cur = best.get(key);
     if (!cur || s.wpm > cur.wpm) {
