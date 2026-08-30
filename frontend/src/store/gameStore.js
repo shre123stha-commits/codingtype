@@ -115,6 +115,13 @@ export const useGameStore = create((set, get) => ({
 
   view: 'train',
   deckTab: 'daily',
+  // True once the operator has picked a category from the DRILL tab. The
+  // CHANGE button uses it to decide whether to stay inside that category or
+  // hand out anything from the catalog.
+  drillPicked: false,
+  // Set by useSessionPost when a finished run lands in a top 10. App renders
+  // <LeaderboardToast> from it and clears it after 5s (or on close).
+  lbPlacement: null,
   inputLocked: false,
   raceGhost: null,
   rival: null, // live 1v1 rival: { name, bot, chars, done }
@@ -162,6 +169,31 @@ export const useGameStore = create((set, get) => ({
   },
   setMode(v) {
     set({ mode: v });
+  },
+  setLbPlacement(p) {
+    set({ lbPlacement: p });
+  },
+  // DRILL tab click — records that a category was explicitly chosen.
+  pickDrillMode(v) {
+    set({ mode: v, drillPicked: true, deckTab: 'drill' });
+  },
+  // CHANGE: load a different target.
+  //   • a drill category is active → another snippet in that same mode+language
+  //   • nothing chosen yet          → any other snippet in the catalog
+  // Returns the snippet it loaded, or null when there is nothing else to give.
+  changeSnippet() {
+    const { catalog, snippet, drillPicked, loadSnippet } = get();
+    if (!catalog.length) return null;
+    let pool = catalog;
+    if (drillPicked && snippet) {
+      const same = catalog.filter((s) => s.mode === snippet.mode && s.language === snippet.language);
+      if (same.length) pool = same;
+    }
+    const others = pool.filter((s) => s.id !== snippet?.id);
+    const list = others.length ? others : pool;
+    if (!list.length) return null;
+    const pick = list[Math.floor(Math.random() * list.length)];
+    return loadSnippet(pick);
   },
   setLanguage(v) {
     set({ language: v });

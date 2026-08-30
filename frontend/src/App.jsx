@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import CookieConsent from './components/CookieConsent.jsx';
 import KeyLegend from './components/KeyLegend.jsx';
 import KeyboardHelp from './components/KeyboardHelp.jsx';
+import LeaderboardToast from './components/LeaderboardToast.jsx';
 import ProfileNamePrompt from './components/ProfileNamePrompt.jsx';
 import SiteFooter from './components/SiteFooter.jsx';
 import TopBar from './components/TopBar.jsx';
@@ -18,6 +19,7 @@ import { usePageMeta } from './utils/pageMeta.js';
 // bundle stays lean. The heaviest dependencies — recharts (AnalyticsView),
 // and the marketing pages — only download when their screen is first opened.
 const AnalyticsView = lazy(() => import('./components/AnalyticsView.jsx'));
+const LeaderboardsView = lazy(() => import('./components/LeaderboardsView.jsx'));
 const ProfileView = lazy(() => import('./components/ProfileView.jsx'));
 const RaceView = lazy(() => import('./components/RaceView.jsx'));
 const AboutPage = lazy(() => import('./pages/AboutPage.jsx'));
@@ -39,6 +41,12 @@ const APP_META = {
     title: '1v1 Race — CodeType',
     description:
       'Race a friend or your own personal best on the same real code snippet. 1v1 lobbies, live progress and ghost racing.',
+    path: '/'
+  },
+  leaderboards: {
+    title: 'Leaderboards — CodeType',
+    description:
+      'Top 10 all-time and top 10 today for the daily challenge and every drill category. Live, ranked by WPM.',
     path: '/'
   },
   analytics: {
@@ -74,7 +82,10 @@ export default function App() {
     track('page_view', { page: view });
   }, [view]);
 
-  const isAppView = view === 'train' || view === 'race' || view === 'analytics' || view === 'profile';
+  const lbPlacement = useGameStore((s) => s.lbPlacement);
+  const setLbPlacement = useGameStore((s) => s.setLbPlacement);
+  const isAppView =
+    view === 'train' || view === 'race' || view === 'leaderboards' || view === 'analytics' || view === 'profile';
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -87,6 +98,8 @@ export default function App() {
             <RaceView />
           ) : view === 'profile' ? (
             <ProfileView />
+          ) : view === 'leaderboards' ? (
+            <LeaderboardsView />
           ) : view === 'analytics' ? (
             <AnalyticsView />
           ) : view === 'about' ? (
@@ -108,6 +121,7 @@ export default function App() {
       <SiteFooter />
       <CookieConsent />
       <KeyboardHelp />
+      <LeaderboardToast placement={lbPlacement} onClose={() => setLbPlacement(null)} />
     </div>
   );
 }

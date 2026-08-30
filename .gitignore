@@ -7,6 +7,8 @@ dist/
 # local runtime data (backend keeps sessions on disk when no cloud link)
 backend/data/*.json
 !backend/data/.gitkeep
+# per-guest session stores — one file per device, never commit anyone's data
+backend/data/guests/
 
 # env files — use the platform's env vars (Vercel / Render dashboards) instead
 .env

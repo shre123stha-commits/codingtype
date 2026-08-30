@@ -1,6 +1,7 @@
 const REQUEST_TIMEOUT_MS = 10000;
 
 import { API_BASE } from './env.js';
+import { guestId } from './guestId.js';
 import { authAvailable, getSupabase, hasStoredSession } from './supabase.js';
 
 // When signed in, tag every API call with the Supabase JWT so the backend
@@ -29,7 +30,9 @@ async function request(path, options = {}) {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...options,
-      headers: { ...(await authHeaders()), ...(options.headers || {}) },
+      // X-Guest-Id scopes guest data to THIS device. Without it every guest
+      // shared one server-side store and saw the same dashboard/analytics.
+      headers: { 'X-Guest-Id': guestId(), ...(await authHeaders()), ...(options.headers || {}) },
       signal: ctrl.signal
     });
     if (!res.ok) throw new Error(`api ${res.status}`);
@@ -54,6 +57,8 @@ export const api = {
     return request(`/api/snippets/${encodeURIComponent(id)}`);
   },
   async saveSession(payload) {
+    // The response carries { leaderboard: { placements, best } } so the client
+    // can celebrate a top-10 finish.
     return request('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -95,6 +100,13 @@ export const api = {
   },
   async adaptive() {
     return request('/api/drills/adaptive');
+  },
+  // All 10 boards (5 categories x 2 timeframes) in one request.
+  async leaderboard() {
+    return request('/api/leaderboard');
+  },
+  async leaderboardMeta() {
+    return request('/api/leaderboard/meta');
   }
 };
 

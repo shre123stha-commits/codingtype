@@ -87,6 +87,7 @@ export default function ModeDeck() {
   const indentAssist = useGameStore((s) => s.indentAssist);
   const blind = useGameStore((s) => s.blind);
   const setMode = useGameStore((s) => s.setMode);
+  const pickDrillMode = useGameStore((s) => s.pickDrillMode);
   const setLanguage = useGameStore((s) => s.setLanguage);
   const setStrictMode = useGameStore((s) => s.setStrictMode);
   const setGhostMode = useGameStore((s) => s.setGhostMode);
@@ -302,7 +303,7 @@ export default function ModeDeck() {
                   <button
                     key={m}
                     type="button"
-                    onClick={() => setMode(m)}
+                    onClick={() => pickDrillMode(m)}
                     className={`chip ${mode === m ? 'chip-on-amber' : 'chip-off'}`}
                   >
                     {MODE_META[m].label}

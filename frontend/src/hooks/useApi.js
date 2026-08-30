@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api, fetchCatalog } from '../utils/api.js';
+import { guestTag } from '../utils/guestId.js';
+import { wsUrl } from '../utils/env.js';
 import { track } from '../utils/analytics.js';
 import { SNIPPETS } from '../data/snippets.js';
 import { ghostPointsFrom } from '../utils/ghostRace.js';
@@ -75,21 +77,38 @@ const postedRunIds = new Set();
 // Persists finished runs to the session store. Previously lived inside
 // HistoryPanel — but that only mounted on TRAIN/ANALYTICS, so it has to be
 // app-level: the home page no longer shows the session log.
+// Who a run is credited to on the leaderboards: the operator's chosen name,
+// else their account handle, else a device tag so two guests are never both
+// just "GUEST".
+function operatorName() {
+  const st = useGameStore.getState();
+  const name = String(st.profileName || '').trim();
+  if (name) return name;
+  if (st.authUser) return String(st.authUser).split('@')[0];
+  return guestTag();
+}
+
 export function useSessionPost() {
   const apiOnline = useGameStore((s) => s.apiOnline);
   const lastRun = useGameStore((s) => s.lastRun);
+  const setLbPlacement = useGameStore((s) => s.setLbPlacement);
   useEffect(() => {
     if (!apiOnline || !lastRun) return;
     if (postedRunIds.has(lastRun.id)) return;
     postedRunIds.add(lastRun.id);
-    api.saveSession(lastRun).catch(() => {});
+    api
+      .saveSession({ ...lastRun, operator: operatorName() })
+      .then((res) => {
+        if (res?.leaderboard?.best) setLbPlacement(res.leaderboard.best);
+      })
+      .catch(() => {});
     track('session_complete', {
       mode: lastRun.mode,
       language: lastRun.language,
       wpm: lastRun.wpm,
       accuracy: lastRun.accuracy
     });
-  }, [apiOnline, lastRun]);
+  }, [apiOnline, lastRun, setLbPlacement]);
 }
 
 const REPO_ID = /^(py|js|java|cpp|rs|sql)-/;
@@ -180,3 +199,86 @@ export function useCatalog() {
 }
 
 
+
+// ── Leaderboards ───────────────────────────────────────────────────────────
+// All 10 boards in one request, then kept live two ways:
+//   • a WebSocket push the instant anyone anywhere posts a top-10 score
+//   • a 20s poll, which is what keeps this correct with no socket open and
+//     across multiple API instances (the server's score bus is per-process)
+export function useLeaderboards() {
+  const [data, setData] = useState(null);
+  const [live, setLive] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(null);
+
+  const refresh = useCallback(() => {
+    return api
+      .leaderboard()
+      .then((d) => {
+        setData(d);
+        setUpdatedAt(Date.now());
+        return d;
+      })
+      .catch(() => null);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const poll = setInterval(refresh, 20000);
+
+    let ws = null;
+    let closed = false;
+    let retry = null;
+
+    const connect = () => {
+      if (closed) return;
+      try {
+        ws = new WebSocket(wsUrl());
+        ws.onopen = () => {
+          setLive(true);
+          try {
+            ws.send(JSON.stringify({ type: 'subscribeLeaderboard' }));
+          } catch {
+            /* ignore */
+          }
+        };
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === 'leaderboard') refresh();
+          } catch {
+            /* ignore malformed frames */
+          }
+        };
+        ws.onclose = () => {
+          setLive(false);
+          if (!closed) retry = setTimeout(connect, 5000);
+        };
+        ws.onerror = () => {
+          try {
+            ws.close();
+          } catch {
+            /* already closed */
+          }
+        };
+      } catch {
+        if (!closed) retry = setTimeout(connect, 5000);
+      }
+    };
+    connect();
+
+    return () => {
+      closed = true;
+      clearInterval(poll);
+      if (retry) clearTimeout(retry);
+      if (ws) {
+        try {
+          ws.close();
+        } catch {
+          /* already closed */
+        }
+      }
+    };
+  }, [refresh]);
+
+  return { data, live, updatedAt, refresh };
+}

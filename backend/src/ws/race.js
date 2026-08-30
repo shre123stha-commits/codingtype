@@ -1,6 +1,7 @@
 import { WebSocketServer } from 'ws';
 
 import { SNIPPETS } from '../../../shared/snippets.js';
+import { onScore } from '../leaderboard/bus.js';
 
 const ROOM_TTL_MS = 15 * 60 * 1000;
 const COUNTDOWN_MS = 3000; // 3-2-1-START, synced for both players
@@ -56,6 +57,8 @@ export function createRaceWs(server, { guard, allowedOrigins = [] } = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
   /** @type {Map<string, any>} code -> room */
   const rooms = new Map();
+  /** Sockets that asked for live leaderboard updates. */
+  const lbSubs = new Set();
 
   const send = (ws, msg) => {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
@@ -359,6 +362,17 @@ export function createRaceWs(server, { guard, allowedOrigins = [] } = {}) {
         dropPlayer(ws);
         return;
       }
+      // Leaderboard feed: the LEADERBOARDS view subscribes and refreshes the
+      // moment anyone in the world posts a top-10 score.
+      if (msg.type === 'subscribeLeaderboard') {
+        lbSubs.add(ws);
+        send(ws, { type: 'leaderboardSubscribed' });
+        return;
+      }
+      if (msg.type === 'unsubscribeLeaderboard') {
+        lbSubs.delete(ws);
+        return;
+      }
       // find the room this socket is in
       let room = null;
       let side = null;
@@ -396,6 +410,7 @@ export function createRaceWs(server, { guard, allowedOrigins = [] } = {}) {
       }
     });
     const release = () => {
+      lbSubs.delete(ws);
       dropPlayer(ws);
       if (guard) guard.disconnected(String(ws.clientIp).replace(/^::ffff:/, ''));
     };
@@ -454,5 +469,32 @@ export function createRaceWs(server, { guard, allowedOrigins = [] } = {}) {
     });
   });
 
-  return wss;
+  // Any new top-10 entry is pushed to every subscribed socket. Clients also
+  // poll on a slow interval, which is what keeps this correct across multiple
+  // instances (the bus is per-process) and for anyone without a socket.
+  const stopListening = onScore((payload) => {
+    const msg = JSON.stringify({ type: 'leaderboard', ...payload, at: Date.now() });
+    for (const ws of lbSubs) {
+      if (ws.readyState === 1) {
+        try {
+          ws.send(msg);
+        } catch {
+          lbSubs.delete(ws);
+        }
+      } else {
+        lbSubs.delete(ws);
+      }
+    }
+  });
+
+  const close = () => {
+    stopListening();
+    try {
+      wss.close();
+    } catch {
+      /* already closed */
+    }
+  };
+
+  return { wss, close };
 }
