@@ -22,8 +22,14 @@ function localDate(ts) {
 router.get('/', ah(async (req, res) => {
   const date = todayStr();
   const sn = dailySnippet(date);
-  const all = await (await storeFor(req)).all();
-  const todayRuns = all.filter((s) => s.daily && s.snippetId === sn.id && localDate(s.createdAt) === date);
+  const store = await storeFor(req);
+  // Push the daily + snippet filters into the store (.eq) — one targeted
+  // fetch for today's challenge runs, plus the full set for the streak.
+  const [dailyRuns, all] = await Promise.all([
+    store.query({ daily: true, snippetId: sn.id, limit: 500 }),
+    store.all()
+  ]);
+  const todayRuns = dailyRuns.filter((s) => localDate(s.createdAt) === date);
   const top = [...todayRuns]
     .sort((a, b) => b.wpm - a.wpm)
     .slice(0, 5)

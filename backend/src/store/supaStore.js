@@ -14,6 +14,20 @@ const localStore = {
   async all() {
     return db.all();
   },
+  // Single-pass filter + paginate over the in-memory list. Mirrors the
+  // Supabase store's query() so route code is store-agnostic.
+  async query(opts = {}) {
+    let rows = db.all();
+    if (opts.snippetId) rows = rows.filter((r) => r.snippetId === opts.snippetId);
+    if (opts.mode) rows = rows.filter((r) => r.mode === opts.mode);
+    if (opts.language) rows = rows.filter((r) => r.language === opts.language);
+    if (opts.daily !== undefined) rows = rows.filter((r) => Boolean(r.daily) === Boolean(opts.daily));
+    if (opts.since) rows = rows.filter((r) => r.createdAt < opts.since); // cursor: strictly older
+    if (opts.before) rows = rows.filter((r) => r.createdAt > opts.before); // strictly newer
+    if (opts.offset) rows = rows.slice(opts.offset);
+    if (opts.limit) rows = rows.slice(0, opts.limit);
+    return rows;
+  },
   async insert(row) {
     await db.addSession(row);
     return row;
@@ -119,6 +133,33 @@ function supaStore(entry) {
       } catch (err) {
         if (String(err.message).includes('42P01')) console.error('[codetype-api] "sessions" table missing — run supabase/schema.sql in the Supabase SQL editor');
         return degrade(err, () => localStore.all());
+      }
+    },
+    // Push filtering/pagination down to Postgres (eq + order + limit/range)
+    // so we never pull 500 rows and filter in JS. Cursor uses created_at.
+    async query(opts = {}) {
+      try {
+        let q = entry.client.from('sessions').select('*');
+        if (opts.snippetId) q = q.eq('snippet_id', opts.snippetId);
+        if (opts.mode) q = q.eq('mode', opts.mode);
+        if (opts.language) q = q.eq('language', opts.language);
+        if (opts.daily !== undefined) q = q.eq('daily', Boolean(opts.daily));
+        q = q.order('created_at', { ascending: false });
+        if (opts.since) q = q.lt('created_at', new Date(opts.since).toISOString());
+        if (opts.before) q = q.gt('created_at', new Date(opts.before).toISOString());
+        if (opts.offset) {
+          const from = opts.offset;
+          const to = from + (opts.limit || 100) - 1;
+          q = q.range(from, to);
+        } else if (opts.limit) {
+          q = q.limit(opts.limit);
+        }
+        const { data, error } = await q;
+        if (error) throw new Error(`${error.code || ''} ${error.message}`.trim());
+        return (data || []).map(fromSupaRow);
+      } catch (err) {
+        if (String(err.message).includes('42P01')) console.error('[codetype-api] "sessions" table missing — run supabase/schema.sql in the Supabase SQL editor');
+        return degrade(err, () => localStore.query(opts));
       }
     },
     async insert(row) {
