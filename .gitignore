@@ -15,6 +15,10 @@ backend/data/guests/
 frontend/.env
 backend/.env
 
+# debug screenshots from scripts/ (playwright)
+.caret-shot.png
+.debug-shot.png
+
 # misc
 *.log
 .DS_Store
