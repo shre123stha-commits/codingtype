@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 import './src/env.js'; // load backend/.env (SUPABASE_URL, SUPABASE_ANON_KEY, …) — real env wins
 import { errorHandler, notFound } from './src/middleware/error.js';
+import { securityHeaders, bodySizeGuard } from './src/middleware/security.js';
+import { createRateLimiter } from './src/middleware/rateLimit.js';
 import snippetsRouter from './src/routes/snippets.js';
 import sessionsRouter from './src/routes/sessions.js';
 import dailyRouter from './src/routes/daily.js';
@@ -31,10 +33,47 @@ process.on('uncaughtException', (err) => logCrash('uncaughtException', err));
 process.on('unhandledRejection', (err) => logCrash('unhandledRejection', err));
 
 const app = express();
-const API_VERSION = '1.8.0';
+const API_VERSION = '1.9.0';
 
-app.use(cors());
-app.use(express.json({ limit: '2mb' }));
+// CORS: same-origin by default. Set CORS_ORIGIN to a comma-separated list of
+// allowed origins for a split deploy (frontend on Vercel + API on Render).
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(
+  cors(
+    allowedOrigins.length
+      ? {
+          origin(origin, cb) {
+            // no origin = same-origin / curl / native clients → allow
+            if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+            return cb(new Error('cors_origin_not_allowed'));
+          }
+        }
+      : undefined
+  )
+);
+
+app.set('trust proxy', true); // behind Vercel/Render — rate limit keys on real client IP
+app.use(securityHeaders);
+app.use(bodySizeGuard(1024 * 1024)); // 1 MB cap — a session row is ~tens of KB
+app.use(express.json({ limit: '1mb' }));
+
+// Rate limiting. Auth/account-like write routes (waitlist signup, session
+// persist) get the strict 5-per-15-minutes bucket; everything else shares a
+// generous general limit. Tune via env for shared deployments.
+const authLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'too_many_attempts'
+});
+const generalLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 300,
+  message: 'too_many_requests'
+});
+app.use(generalLimiter);
 
 app.get('/', (req, res) => {
   res.json({
@@ -70,7 +109,10 @@ app.use('/api/snippets', snippetsRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/daily', dailyRouter);
 app.use('/api/drills', drillsRouter);
-app.use('/api/waitlist', waitlistRouter);
+// Strict auth/account bucket: waitlist signup (email collection) is the
+// closest thing to an account/credential endpoint this API exposes. Supabase
+// Auth itself is rate-limited in the Supabase dashboard, not here.
+app.use('/api/waitlist', authLimiter, waitlistRouter);
 
 app.use(notFound);
 app.use(errorHandler);

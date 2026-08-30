@@ -33,6 +33,16 @@ create table if not exists public.sessions (
 create index if not exists sessions_user_created_idx
   on public.sessions (user_id, created_at desc);
 
+-- v1.9 — indexes for the filter/search columns used by ghost race, benchmark,
+-- personal bests and the daily streak (see migrations/20260830_add_query_indexes.sql
+-- for the before/after EXPLAIN ANALYZE).
+create index if not exists sessions_user_snippet_idx
+  on public.sessions (user_id, snippet_id, created_at desc);
+create index if not exists sessions_user_mode_lang_idx
+  on public.sessions (user_id, mode, language, created_at desc);
+create index if not exists sessions_user_daily_idx
+  on public.sessions (user_id, daily, created_at desc);
+
 -- Row Level Security: a user can only ever see/touch their own rows
 alter table public.sessions enable row level security;
 

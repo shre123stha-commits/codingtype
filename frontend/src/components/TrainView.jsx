@@ -54,7 +54,6 @@ export default function TrainView() {
           <DiagnosticDashboard />
         ) : (
           <>
-            <AdSlot variant="leaderboard" />
             <p className="pt-1 text-center text-[10px] font-semibold tracking-[0.34em] text-faint">
               TYPE REAL CODE · TRAIN THE MUSCLE MEMORY
             </p>
@@ -67,6 +66,7 @@ export default function TrainView() {
       <div className="order-3">
         {/* SESSION LOG lives in the ANALYTICS tab — home stays clean */}
         <FrictionPreview />
+        <AdSlot variant="box" className="mt-4" />
       </div>
     </main>
   );
