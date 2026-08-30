@@ -107,18 +107,34 @@ expected plan shape for both cases.
 ## 5. Code splitting / bundle size
 
 * Previously everything resolved from a single entry with no dynamic imports.
-* Added **`React.lazy` + `<Suspense>`** in `App.jsx` for every non-initial view:
-  `AnalyticsView` (drags in **recharts**, the heaviest dependency), `ProfileView`,
-  `RaceView`, and the four marketing pages. The home `TrainView` and the app
-  chrome (TopBar/footer/help/consent) load eagerly so first paint is instant.
-* Each view now becomes its own chunk and downloads only when first opened.
+* Added **`React.lazy` + `<Suspense>`** for every non-initial view:
+  `AnalyticsView`, `ProfileView`, `RaceView`, the four marketing pages, **and
+  `DiagnosticDashboard`** (the post-run panel that pulls in `recharts` via
+  `StutterTimeline`). The home `TrainView` and the app chrome
+  (TopBar/footer/help/consent) load eagerly so first paint is instant.
 
-> Note: I could not run a production build in this sandbox — the pre-installed
-> `frontend/node_modules` has a macOS-native Rollup binary, so `vite build`
-> fails on `@rollup/rollup-linux-x64-gnu` (an environment issue, unrelated to
-> these changes). After `npm install` on a normal machine, run
-> `npm run build` and check `dist/assets/*.js`. Expect the **initial chunk to
-> shrink** once recharts/qrcode/marketing code move into on-demand chunks.
-> To hit a hard <200 KB initial budget you may still want to split the
-> Supabase client (auth) out of the critical path, since `@supabase/supabase-js`
-> is the other large vendor dependency.
+### Measured result (`vite build`)
+
+| Metric | Before | After |
+|---|---|---|
+| Main/initial chunk | 993.7 kB (290.8 kB gzip) | **574.8 kB (176.4 kB gzip)** |
+| `recharts` (on-demand `LineChart` chunk) | in main bundle | 377.2 kB (104.3 kB gzip) |
+
+The initial bundle is now **under the 200 KB gzip target** (176.4 kB).
+`recharts` only downloads when the analytics view or the post-run diagnostics
+panel is first opened.
+
+### If you need the initial chunk lower still
+
+The remaining 574.8 kB is React + ReactDOM, `@supabase/supabase-js`, `prismjs`
+(+ 6 language grammars), and `zustand` — all needed on first paint (auth +
+syntax highlighting). Optional next steps, in rough order of impact:
+
+1. `build.rollupOptions.output.manualChunks` to split `react`, `supabase`, and
+   `prism` into separately-cached vendor chunks (reduces *re-download on
+   deploy*, not the first-visit bytes).
+2. Lazy-load the Supabase client behind the auth menu so `@supabase/supabase-js`
+   isn't parsed until an account action (note: it's also used to tag session
+   POSTs with the JWT, so this needs the session check to be made lazy too).
+3. Consider a smaller syntax highlighter than Prism for the tokenizer if the
+   ~6 grammars dominate (they are relatively small).
