@@ -297,10 +297,23 @@ WebSocket race server — Vercel serverless functions don't hold long-lived WS c
   |------|-------|
   | `SUPABASE_URL` | your Supabase project URL |
   | `SUPABASE_ANON_KEY` | your publishable/anon key |
+  | `CORS_ORIGIN` | your Vercel URL, e.g. `https://codetype-eight.vercel.app` |
+  | `SUPABASE_SERVICE_ROLE_KEY` | *optional* — makes leaderboards persist in Supabase |
 
-  (`PORT` is set by Render automatically; the server binds `process.env.PORT`.)
-- CORS is open (`app.use(cors())`) and the WS upgrade doesn't filter origins, so any
-  frontend domain can talk to it. No code change needed on this side.
+  (`PORT` is set by Render automatically; the server binds `process.env.PORT`.
+  Every other knob — rate limits, WS guards, timeouts — is documented in
+  `backend/.env.example` and has a safe default.)
+- **CORS:** set `CORS_ORIGIN` to a comma-separated allowlist of frontend origins.
+  The same list also gates the WebSocket `Origin` header. If it is unset the API
+  answers `Access-Control-Allow-Origin: *` and logs a warning at boot — that is
+  safe here (the API is stateless: Bearer JWT, no cookies, so a wildcard cannot
+  leak a signed-in user's rows to another origin) but it does let any site call
+  the public endpoints.
+- **Leaderboards** use `backend/data/leaderboard.json` unless `SUPABASE_URL` **and**
+  `SUPABASE_SERVICE_ROLE_KEY` are both set, in which case they use the
+  `public.leaderboard_scores` table (run `supabase/migrations/20260830_leaderboards.sql`
+  first). It must be the **service_role** key and must live only here — never in
+  `frontend/.env`, never with a `VITE_` prefix, or it ships to the browser.
 
 ### 2. Frontend → Vercel
 
@@ -323,8 +336,9 @@ time — after changing it on Vercel, the project must **redeploy**.
 - **Render free tier sleeps** after ~15 min idle. The first request (and WS connection)
   after a sleep takes ~30–60 s to wake the instance; the top-bar **API LINK** chip shows
   OFFLINE until it answers and recovers on its own (it re-polls). Paid instances stay up.
-- **Guest data** (not signed in) lives in the API's JSON store — on Render's free tier the
-  disk is ephemeral, so it resets on each deploy/restart. **Signed-in accounts store
+- **Guest data** (not signed in) is stored per device in the API's JSON store
+  (`backend/data/guests/<device-id>.json`, one file per browser) — on Render's free tier
+  the disk is ephemeral, so it resets on each deploy/restart. **Signed-in accounts store
   everything in Supabase**, which persists.
 - Everything the browser does (typing, sessions, daily streaks) works with the API fully
   offline; only 1v1 races and cloud sync need it.
