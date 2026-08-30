@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import AdaptivePanel from './AdaptivePanel.jsx';
-import FlashCardsView from './FlashCardsView.jsx';
 import HudCard from './HudCard.jsx';
 import ImportPanel from './ImportPanel.jsx';
 import { useDaily } from '../hooks/useApi.js';
 import { MODES } from '../data/snippets.js';
 import { useGameStore } from '../store/gameStore.js';
 import { apiUrl } from '../utils/env.js';
+
+// Flash cards pull in the `qrcode` library (canvas share cards). That is only
+// needed if the operator opens the FLASH CARDS tab, so it is code-split out of
+// the initial bundle — the home page must not pay for it.
+const FlashCardsView = lazy(() => import('./FlashCardsView.jsx'));
 
 const MODE_META = {
   algorithm: { label: 'ALGO', blurb: 'Clean logic templates — sorting, search, trees, graphs.' },
@@ -414,7 +418,9 @@ export default function ModeDeck() {
           {tab === 'flash' ? (
             <>
               <SectionTitle num="06" title={activeTab.title} />
-              <FlashCardsView />
+              <Suspense fallback={<div className="p-6 text-center text-[9px] tracking-[0.3em] text-faint">LOADING…</div>}>
+                <FlashCardsView />
+              </Suspense>
             </>
           ) : null}
         </div>

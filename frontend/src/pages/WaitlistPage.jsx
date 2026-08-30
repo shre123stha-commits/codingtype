@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import AdSlot from '../components/AdSlot.jsx';
+// The advertisement lives in the right-hand rail provided by SitePage.
 import { navigate } from '../hooks/useSiteRoute.js';
 import { apiUrl } from '../utils/env.js';
 import { track } from '../utils/analytics.js';
@@ -93,8 +93,6 @@ export default function WaitlistPage() {
           ) : null}
         </form>
       )}
-
-      <AdSlot variant="leaderboard" className="mb-8" />
 
       <div className="flex flex-wrap gap-2">
         <button type="button" className="chip chip-off !px-4 !py-2 !text-[10px]" onClick={() => navigate('/about')}>

@@ -50,8 +50,10 @@ function summarizeRoom(room, forWs) {
   };
 }
 
-export function createRaceWs(server) {
-  const wss = new WebSocketServer({ noServer: true });
+export function createRaceWs(server, { guard, allowedOrigins = [] } = {}) {
+  // maxPayload: a single race frame is a few dozen bytes. Capping it at 64 KB
+  // means a client cannot make the server buffer an arbitrary message.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
   /** @type {Map<string, any>} code -> room */
   const rooms = new Map();
 
@@ -268,6 +270,9 @@ export function createRaceWs(server) {
   };
 
   const handleCreate = (ws, msg) => {
+    if (guard && !guard.canCreate(ws.clientIp || 'unknown')) {
+      return send(ws, { type: 'createResult', ok: false, reason: 'rateLimited' });
+    }
     // leave any room this socket is in
     dropPlayer(ws);
     const snippet = SNIPPETS.find((s) => s.id === String(msg.snippetId || '').slice(0, 40));
@@ -315,18 +320,33 @@ export function createRaceWs(server) {
     }, 1200);
   };
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     ws.isAlive = true;
+    ws.clientIp = (req && req.ip) || req?.socket?.remoteAddress || 'unknown';
+    ws.budget = guard ? guard.newMessageBudget() : null;
+    if (guard) guard.connected(String(ws.clientIp).replace(/^::ffff:/, ''));
     ws.on('pong', () => {
       ws.isAlive = true;
     });
     ws.on('message', (buf) => {
+      // Token bucket: a client spamming progress frames is disconnected rather
+      // than allowed to burn CPU relaying every one of them.
+      if (ws.budget && guard && !guard.allowMessage(ws.budget)) {
+        try {
+          ws.close(1008, 'too_many_messages');
+        } catch {
+          /* already gone */
+        }
+        return;
+      }
       let msg;
       try {
         msg = JSON.parse(buf.toString());
       } catch {
         return;
       }
+      if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return;
+      if (typeof msg.type !== 'string' || msg.type.length > 24) return;
       if (msg.type === 'create') {
         handleCreate(ws, msg);
         return;
@@ -375,8 +395,12 @@ export function createRaceWs(server) {
         finishRace(room, 'finish');
       }
     });
-    ws.on('close', () => dropPlayer(ws));
-    ws.on('error', () => dropPlayer(ws));
+    const release = () => {
+      dropPlayer(ws);
+      if (guard) guard.disconnected(String(ws.clientIp).replace(/^::ffff:/, ''));
+    };
+    ws.on('close', release);
+    ws.on('error', release);
   });
 
   const heartbeat = setInterval(() => {
@@ -407,8 +431,26 @@ export function createRaceWs(server) {
       socket.destroy();
       return;
     }
+    // Origin allowlist. Browsers always send Origin on a WebSocket handshake,
+    // so an empty/foreign Origin means the request did not come from our page.
+    if (allowedOrigins.length) {
+      const origin = req.headers.origin;
+      if (origin && !allowedOrigins.includes(origin)) {
+        socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+    }
+    // Cap simultaneous sockets per IP so one client can't exhaust the server.
+    const ip = String(req.socket?.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+    if (guard && !guard.canConnect(ip)) {
+      socket.write('HTTP/1.1 429 Too Many Requests\r\nRetry-After: 60\r\nConnection: close\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    req.ip = ip;
     wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit('connection', ws);
+      wss.emit('connection', ws, req);
     });
   });
 

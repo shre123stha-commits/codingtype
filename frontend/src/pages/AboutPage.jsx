@@ -1,4 +1,5 @@
-import AdSlot from '../components/AdSlot.jsx';
+// The advertisement lives in the right-hand rail provided by SitePage — no
+// top-centre banner on this page.
 import { navigate } from '../hooks/useSiteRoute.js';
 import SitePage from './SitePage.jsx';
 
@@ -46,8 +47,6 @@ export default function AboutPage() {
           your stats in the cloud.
         </p>
       </div>
-
-      <AdSlot variant="leaderboard" className="my-8" />
 
       <div className="flex flex-wrap gap-2">
         <button type="button" className="chip chip-on-amber !px-4 !py-2 !text-[10px]" onClick={() => navigate('/faq')}>
