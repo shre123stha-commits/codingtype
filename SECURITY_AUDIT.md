@@ -1,96 +1,130 @@
-# CodeType — Security Audit (v1.9)
+# CodeType — Security Audit
 
-Audit date: 2026-08-30 · Scope: `backend/`, `frontend/`, `supabase/`, deploy scripts.
+Last audited: 2026-08-30 · Scope: `backend/`, `frontend/`, `supabase/`, `scripts/`, deploy files.
+Every "verified" line below was produced by a command run against this tree; the
+command is named so you can re-run it.
 
-## 1. Hardcoded secrets / credentials — full scan
+## 1. Hardcoded secrets — full scan
 
-Scanned the entire codebase (excluding `node_modules`) for API keys, tokens,
-passwords, private keys, and service-account material.
+Scanned all tracked files (excluding `node_modules`) for API keys, tokens,
+passwords, connection strings, private keys and cloud credentials, then repeated
+the scan across **every commit in history**.
 
-| Finding | Severity | Status |
+| Check | Command | Result |
 |---|---|---|
-| `backend/.env` and `frontend/.env` contained the real Supabase **project URL + anon (publishable) key** and were committed to Git. | Low–Medium | **Fixed** — untracked from Git (`git rm --cached`); already in `.gitignore`. |
-| The committed value is `sb_publishable_…` — the **anon/public** key. This is *designed* to ship to the browser (Row-Level Security scopes all data to the owner). | Informational | No action required, but see note below. |
-| No `service_role` key, no Postgres connection string, no `JWT_SECRET`, no private key, no third-party API key anywhere in the repo. | — | Clean. |
+| Secret patterns in the working tree | `git grep -nIE "(sk-…\|sb_secret\|service_role\|eyJhbGciOi…\|BEGIN …PRIVATE KEY\|postgres://user:pw@\|AKIA…\|ghp_…)"` | **No credential material.** All 7 hits are prose (README, `.env.example` comments, this file) warning *against* using the `service_role` key. |
+| Every `api_key` / `secret` / `password` mention | `git grep -nIiE "(api[_-]?key\|secret\|passw(or)?d)"` | Only UI copy, the sign-in form's `password` state variable, and docs. No literal values. |
+| `.env` files on disk | `find . -name .env -not -path "*/node_modules/*"` | **None.** |
+| `.env` ever committed | `git log --all --diff-filter=A --name-only \| grep '\.env$'` | **Never.** |
+| Secret-shaped blob in any commit | loop over `git rev-list --all` + `git grep` | **Clean across all history.** |
 
-### Recommended follow-up (not blocking)
+`SUPABASE_URL` / `SUPABASE_ANON_KEY` are read from `process.env` at runtime
+(`backend/src/env.js`, where real env vars win over `backend/.env`), and the
+frontend reads `VITE_*` at build time. The anon key is the *publishable* key —
+it is designed to ship to the browser, and Row-Level Security scopes every row
+to its owner.
 
-* The anon key still exists in **Git history** (it was committed previously).
-  The anon key is publishable and RLS-scoped, so the risk is low — but if you
-  want it gone, rotate it in Supabase: *Dashboard → Settings → API → Rotate
-  anon key*, then update `frontend/.env` / `backend/.env` locally. No code change needed.
-* **Never** put the `service_role` key or the DB password in any `.env` file
-  that could be committed, and never reference them in `VITE_*` variables
-  (anything `VITE_*` is inlined into the public bundle). The backend already
-  loads secrets from `backend/.env` at runtime via a small loader where real
-  environment variables win — keep using that pattern.
+## 2. Controls in place
 
-## 2. What was added this pass
-
-| Control | Where |
-|---|---|
-| **Rate limiting** on every endpoint | `backend/src/middleware/rateLimit.js` + `server.js` |
-| **Strict bucket: 5 attempts / 15 min** on account-like routes | `/api/waitlist` (email signup) — the closest thing to an auth route this API exposes |
-| **General bucket: 300 / 15 min** (tunable via `RATE_LIMIT_MAX`) | all other routes |
-| **Security headers** (`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`) | `backend/src/middleware/security.js` |
-| **Body-size guard** (413 before parse) + **1 MB** JSON limit | `server.js`, `security.js` |
-| **Malformed JSON → 400** (was 500) | `middleware/error.js` |
-| **Payload-too-large → 413** | `middleware/error.js` |
-| **CORS origin allowlist** via `CORS_ORIGIN` (default: same-origin) | `server.js` |
-| **Input sanitization** (length-capped strings, numeric coercion, email regex, bounded query params) | already present in `sessions.js`, `waitlist.js`; kept + tightened |
+| Control | Where | Verified |
+|---|---|---|
+| **Rate limiting on every route** | `middleware/rateLimit.js` + `server.js` | `X-RateLimit-Limit/Remaining/Reset` present on `GET /api/health` |
+| **5 attempts / 15 min on auth routes** | `app.post('/api/waitlist', authLimiter)` | 6 POSTs → `200`×5 then `429 {"error":"too_many_attempts","retryAfterSec":900}` |
+| Write bucket (90/15 min) on run persistence | `app.post('/api/sessions', writeLimiter)` | — |
+| General bucket (300/15 min/IP/path) | `app.use(generalLimiter)` | `X-RateLimit-Limit: 300` |
+| Bounded limiter store (20k ceiling + sweep) | `rateLimit.js` | prevents memory exhaustion via key churn |
+| **`trust proxy` is a bounded hop count** | `server.js`, `TRUST_PROXY` (default 1) | 6 signups with a *rotating* fake `X-Forwarded-For` + same true IP → 6th returns `429` (all keyed to the true IP) |
+| Input sanitization on every route | `middleware/sanitize.js` | see §3 |
+| Body-size guard + 1 MB JSON limit | `security.js`, `server.js` | 3 MB POST → `413` |
+| Malformed / wrong-shape JSON | `middleware/error.js` | `{bad` → `400 invalid_json`; `[1,2,3]` → `400 invalid_payload` |
+| Security headers | `security.js` | `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `CSP: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`, `Cache-Control: no-store`, `Cross-Origin-Resource-Policy: same-origin` |
+| Socket timeouts (slow-loris) | `server.js` | `requestTimeout` 30 s, `headersTimeout` 35 s, `keepAliveTimeout` 10 s |
+| CORS allowlist + preflight caching | `server.js`, `CORS_ORIGIN`, `CORS_MAX_AGE` | allowed origin → preflight `204` + `Access-Control-Allow-Headers: content-type,x-guest-id,authorization`; `Origin: https://evil.example.com` → `403 origin_not_allowed` |
+| WebSocket guards | `ws/race.js` | `maxPayload` 64 KB, ≤6 sockets/IP, ≤30 rooms/IP/15 min, 240 msg/min token bucket, Origin allowlist |
+| Leaderboards: server-writes-only | `store/leaderboardStore.js` + migration | anon can `SELECT`, anon `INSERT` → `permission denied` (real Postgres) |
 
 ## 3. Input handling
 
-* `POST /api/sessions` — every field is coerced and length-capped
-  (`mode`/`language` ≤ 24 chars, `snippetId` ≤ 40, `title` ≤ 80, `source` ≤ 120),
-  `charStats` capped at 160 keys, `charTimes` capped at 2000 entries.
-* `POST /api/waitlist` — strict email regex + 200-char cap; case-normalized;
-  duplicates rejected.
-* `GET /api/sessions` — `limit` clamped to `[1, 100]`, `cursor` coerced to a
-  finite number.
-* WebSocket race lobby — join codes stripped to 6 digits, snippet id length-capped,
-  durations whitelisted (`{0,30,60,90}`), progress chars clamped to `[0, 100000]`.
+`middleware/sanitize.js` is the single choke point. Applied to every route.
 
-## 4. Remaining vulnerabilities / recommendations
+| Input | Treatment | Verified |
+|---|---|---|
+| Strings | control chars stripped, length-capped | `mode` ≤24, `snippetId` ≤40, `title` ≤80, `source` ≤120, `operator` ≤24 |
+| Numbers | coerced **and clamped** | `wpm:1e30, accuracy:-5, chars:99999999` stored as `600 / 0 / 1000000` |
+| Stats maps | rebuilt key-by-key; ≤128–400 keys; key ≤8 chars | `charStats` with `__proto__` / `constructor` / `prototype` → stored keys `["a"]` only |
+| Prototype pollution | forbidden keys rejected on the **raw** key, before truncation | `Object.prototype` unchanged after the attack payload |
+| Keystroke timings | ≤2000 entries, `t` ∈ [0, 86400] | `[{"t":"abc","n":"x"}]` → `[{"t":0,"n":1}]` |
+| Query params | typed, bounded, never NaN | `limit` clamped, `offset` ≥0, `cursor` must be finite |
+| Body shape | must be a plain object | top-level array → `400` |
+| Email | strict regex + 200-char cap + case-fold | `not-an-email` → `400 VALID EMAIL REQUIRED` |
+| `X-Guest-Id` | UUID-shaped, `..` and `/` rejected, checked **before** it reaches a path | `../../../../etc/passwd` created no file |
+| WS frames | ≤64 KB, type ≤24 chars, non-object rejected, `chars` clamped [0, 100000], durations whitelisted `{0,30,60,90}` | — |
 
-These are **residual risks**, not regressions, and are listed honestly.
+A note on the forbidden-key check: it deliberately runs on the **raw** key.
+Checking after truncation would let `__proto__` become `__proto_` and slip
+through as an ordinary key — harmless, but sloppy, and it was fixed.
 
-1. **In-memory rate limiter is per-process.** Behind a load balancer (multiple
-   Node instances / serverless), each instance has its own counter, so an
-   attacker can spread attempts across instances. For a scaled deploy, swap the
-   `Map` in `rateLimit.js` for a shared store (Redis / Supabase table / Upstash).
-   — *Severity: Low (mitigated for single-instance deploys).*
+## 4. Remaining vulnerabilities
 
-2. **CORS is open unless `CORS_ORIGIN` is set.** The default (`cors()` with no
-   allowlist) is convenient but permissive. In production set
-   `CORS_ORIGIN=https://your-frontend.vercel.app` (comma-separated for multiple).
-   The API is same-origin with the frontend today and carries no cookies, so
-   exploitability is low. — *Severity: Low.*
+Listed honestly. None are regressions; all are either deployment
+responsibilities or accepted trade-offs.
 
-3. **WebSocket endpoint (`/api/ws`) is not rate-limited.** A client can open
-   many sockets / create many race rooms. Rooms self-expire (15 min TTL) and the
-   heartbeat prunes dead sockets, so the blast radius is bounded, but consider
-   capping connections per IP. — *Severity: Low.*
+1. **The in-memory rate limiter is per-process.** Behind a load balancer with
+   multiple Node instances each has its own counters, so an attacker can spread
+   attempts across them. Swap the store in `rateLimit.js` for Redis / Upstash
+   for a scaled deploy. — *Low (mitigated on single-instance).*
 
-4. **Supabase Auth rate limiting lives in Supabase, not this backend.** Login /
-   signup calls go from the browser straight to Supabase, so the 5/15-min bucket
-   here can't throttle them. Enable **Auth rate limiting** and turn on CAPTCHA /
-   "Confirm email" in *Supabase Dashboard → Authentication → Protection*.
-   — *Severity: Medium (brute-force surface, mitigated by Supabase defaults).*
+2. **CORS defaults to `*` when `CORS_ORIGIN` is unset.** The API is stateless
+   (Bearer JWT, no cookies), so a wildcard cannot leak a signed-in user's rows
+   to another origin — but any site can call the public endpoints. Set
+   `CORS_ORIGIN=https://your-frontend.vercel.app` in production. The server logs
+   a warning at boot when it is unset. — *Low.*
 
-5. **No HSTS / no CSRF tokens.** HSTS must be set at the TLS proxy (Vercel/Render),
-   not in app code. CSRF is largely a non-issue here because the API uses a
-   stateless `Authorization: Bearer` JWT (no ambient cookies); note that the
-   WebSocket handshake also does not check `Origin` — consider validating
-   `Origin`/`Host` on the upgrade if you tighten CORS. — *Severity: Low.*
+3. **`TRUST_PROXY` must match your topology.** The default (`1`) is correct
+   behind one proxy. If you ever expose the API directly, set `TRUST_PROXY=0`,
+   or a client can forge `X-Forwarded-For`. — *Low, but a real footgun.*
 
-6. **Data in the browser is client-controlled.** Guest data is stored in
-   `localStorage` and cloud rows are RLS-scoped, but any stats the client sends
-   are trusted (WPM, accuracy). This is a gaming/telemetry app, so acceptable —
-   flagging only so it's a conscious decision. — *Severity: Informational.*
+4. **Supabase Auth rate limiting lives in Supabase, not here.** Login/signup go
+   browser → Supabase directly, so the 5/15-min bucket cannot throttle them.
+   Enable **Auth rate limiting** and CAPTCHA under *Authentication →
+   Protection*. — *Medium (brute-force surface).*
 
-## 5. Verification performed
+5. **The leaderboard is world-writable only via this server, and that is the
+   whole design.** It requires `SUPABASE_SERVICE_ROLE_KEY` in the **backend**
+   env. If that key ever reaches a `VITE_*` variable or the frontend bundle,
+   anyone can forge scores. It is not in the repo and must stay out. —
+   *Informational until configured.*
 
-* `curl` smoke tests confirmed: `429` after 5 waitlist signups, `400` on
-  malformed JSON, `413` on a 2 MB body, security + rate-limit headers present,
-  and pagination/query endpoints returning correctly.
+6. **Guest identity is a localStorage device id.** Clearing site data starts a
+   fresh guest, and a user can mint new ids to post extra leaderboard entries.
+   The accuracy gate (≥90%), the WPM clamp (≤600), the DB check constraints and
+   the write rate limit bound the damage, but a determined user can still
+   occupy several leaderboard slots. Real anti-abuse needs accounts. —
+   *Low–Medium (accepted: it is a typing game).*
+
+7. **Client-reported stats are trusted.** WPM/accuracy come from the browser.
+   Unavoidable without server-side replay verification. — *Informational.*
+
+8. **No HSTS, no CSRF tokens.** HSTS must be set at the TLS proxy
+   (Vercel/Render). CSRF is largely moot: the API uses a stateless Bearer JWT
+   with no ambient cookies. Note the WS handshake only checks `Origin` when
+   `CORS_ORIGIN` is set. — *Low.*
+
+9. **`node_modules/` is tracked in Git** (11,494 of 11,626 tracked files). Not a
+   secret leak, but it bloats the repo to ~22 MB of `.git` and makes review
+   noisy. Untracking it is a ~11.5k-file diff **and** would break the deploy if
+   your host installs nothing and relies on the committed tree — so it was left
+   alone deliberately. Check your Render build command first. — *Low.*
+
+## 5. How to re-run the verification
+
+```bash
+cd backend && PORT=3199 node server.js &
+B=http://127.0.0.1:3199
+for i in 1 2 3 4 5 6; do curl -s -o /dev/null -w "%{http_code} " -X POST $B/api/waitlist \
+  -H 'Content-Type: application/json' -d "{\"email\":\"p$i@example.com\"}"; done; echo
+#  → 200 200 200 200 200 429
+curl -s -w " %{http_code}\n" -X POST $B/api/sessions -H 'Content-Type: application/json' -d '{bad'
+head -c 3000000 /dev/zero | tr '\0' a > /tmp/big; curl -s -o /dev/null -w "%{http_code}\n" \
+  -X POST $B/api/sessions -H 'Content-Type: application/json' --data-binary @/tmp/big
+```
