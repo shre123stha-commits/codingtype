@@ -12,6 +12,7 @@ import {
   renderRaceCard,
   renderResultCard
 } from '../utils/flashCard.js';
+import { collectSessions } from '../utils/api.js';
 import { useRace } from '../hooks/useRace.js';
 import { useTypingEngine } from '../hooks/useTypingEngine.js';
 import { api } from '../utils/api.js';
@@ -436,7 +437,9 @@ export default function RaceView() {
 
   const openProfileCard = async () => {
     try {
-      const [d] = await Promise.all([api.sessions(500).then((res) => res.sessions).catch(() => [])]);
+      // The session log is cursor-paginated; walk up to 5 pages (500 runs)
+      // instead of asking for 500 rows the server would cap at 100 anyway.
+      const d = await collectSessions({ limit: 100, maxPages: 5 }).catch(() => []);
       const profile = buildProfile({ sessions: d, authUser, streak: daily?.streak || 0 });
       const canvas = await renderProfileCard(profile, theme);
       openCard({ title: 'PROFILE FLASH CARD', canvas, text: profileShareText(profile) });

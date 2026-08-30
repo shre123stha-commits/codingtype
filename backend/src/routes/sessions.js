@@ -1,8 +1,8 @@
 import { Router } from 'express';
 
 import { fingerOf } from '../../../shared/fingers.js';
-import { db } from '../store/fileStore.js';
 import { storeFor } from '../store/supaStore.js';
+import { bool, isPlainBody, num, queryInt, queryStr, statsMap, str, timings } from '../middleware/sanitize.js';
 
 const router = Router();
 
@@ -14,55 +14,48 @@ const ah = (fn) => (req, res) => {
   });
 };
 
-function sanitizeCharStats(obj) {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
-  const out = {};
-  let count = 0;
-  for (const [ch, v] of Object.entries(obj)) {
-    if (count >= 160) break;
-    out[ch] = { t: Number(v?.t) || 0, e: Number(v?.e) || 0 };
-    count += 1;
-  }
-  return out;
-}
+// Rows an aggregate endpoint is allowed to read. Bounded so a heavy account
+// can't make one request pull an unbounded result set.
+const SCAN_MAX = 1000;
+const SCAN_DEFAULT = 500;
 
-function sanitizeCharTimes(arr) {
-  if (!Array.isArray(arr)) return [];
-  // keep millisecond precision — whole-second rounding made PB ghost replays
-  // teleport (all keystrokes inside a second shared one timestamp)
-  return arr.slice(0, 2000).map((c) => ({ t: Math.round((Number(c?.t) || 0) * 1000) / 1000, n: Number(c?.n) || 1 }));
+function scanLimit(req) {
+  return queryInt(req.query.limit, { min: 1, max: SCAN_MAX, fallback: SCAN_DEFAULT });
 }
 
 function sessionShape(payload) {
-  const stats = payload?.stats || {};
-  const snippet = payload?.snippet || {};
-  const row = {
+  const stats = payload?.stats;
+  const snippet = payload?.snippet;
+  return {
     id: crypto.randomUUID(),
     createdAt: Date.now(),
-    mode: String(payload?.mode || stats.mode || 'unknown').slice(0, 24),
-    language: String(payload?.language || stats.language || 'unknown').slice(0, 24),
-    snippetId: String(snippet.id || 'unknown').slice(0, 40),
-    snippetTitle: String(snippet.title || 'unknown').slice(0, 80),
-    snippetSource: String(snippet.source || '').slice(0, 120),
-    wpm: Number(stats.wpm) || 0,
-    rawWpm: Number(stats.rawWpm) || 0,
-    accuracy: Number(stats.accuracy) || 0,
-    consistency: Number(stats.consistency) || 0,
-    timeSec: Number(stats.timeSec) || 0,
-    errors: Number(stats.errors) || 0,
-    backspaces: Number(stats.backspaces) || 0,
-    chars: Number(stats.chars) || 0,
-    symbolStats: payload?.symbolStats && typeof payload.symbolStats === 'object' ? payload.symbolStats : {},
-    lineStats: payload?.lineStats && typeof payload.lineStats === 'object' ? payload.lineStats : {},
-    charStats: sanitizeCharStats(payload?.charStats),
-    charTimes: sanitizeCharTimes(payload?.charTimes),
-    daily: Boolean(payload?.daily)
+    mode: str(payload?.mode || stats?.mode || 'unknown', 24, 'unknown'),
+    language: str(payload?.language || stats?.language || 'unknown', 24, 'unknown'),
+    snippetId: str(snippet?.id || 'unknown', 40, 'unknown'),
+    snippetTitle: str(snippet?.title || 'unknown', 80, 'unknown'),
+    snippetSource: str(snippet?.source || '', 120),
+    // Every number is coerced AND clamped: a client claiming 1e9 WPM or a
+    // negative char count must not poison the aggregates or the leaderboards.
+    wpm: num(stats?.wpm, { min: 0, max: 600 }),
+    rawWpm: num(stats?.rawWpm, { min: 0, max: 1200 }),
+    accuracy: num(stats?.accuracy, { min: 0, max: 100 }),
+    consistency: num(stats?.consistency, { min: 0, max: 100 }),
+    timeSec: num(stats?.timeSec, { min: 0, max: 86400 }),
+    errors: num(stats?.errors, { min: 0, max: 1e6 }),
+    backspaces: num(stats?.backspaces, { min: 0, max: 1e6 }),
+    chars: num(stats?.chars, { min: 0, max: 1e6 }),
+    // Rebuilt key-by-key: prototype-pollution keys are dropped, key count and
+    // key length are capped, and values are coerced to finite numbers.
+    symbolStats: statsMap(payload?.symbolStats, { maxKeys: 128, maxKeyLen: 8 }),
+    lineStats: statsMap(payload?.lineStats, { maxKeys: 400, maxKeyLen: 8 }),
+    charStats: statsMap(payload?.charStats, { maxKeys: 160, maxKeyLen: 8 }),
+    charTimes: timings(payload?.charTimes, { max: 2000, maxT: 86400 }),
+    daily: bool(payload?.daily)
   };
-  return row;
 }
 
 router.post('/', ah(async (req, res) => {
-  if (!req.body || typeof req.body !== 'object') {
+  if (!isPlainBody(req.body)) {
     return res.status(400).json({ error: 'invalid_payload' });
   }
   const row = sessionShape(req.body);
@@ -71,16 +64,18 @@ router.post('/', ah(async (req, res) => {
   res.status(201).json({ id: row.id, createdAt: row.createdAt, store: store.kind });
 }));
 
-// Cursor-based pagination (newest-first by createdAt). The cursor is the
-// `createdAt` of the last item on the previous page; pass it back as `cursor`
+// ── Cursor-based pagination (newest-first by createdAt) ────────────────────
+// `cursor` is the createdAt of the last row on the previous page; pass it back
 // to get the next page. `hasMore` is decided by over-fetching one row.
+// Cursor (not offset) pagination: this is the big, monotonically-appended
+// table, so OFFSET would get slower on every page while a keyset scan stays
+// O(page). Response: { sessions, nextCursor, hasMore, limit }
 router.get('/', ah(async (req, res) => {
   const store = await storeFor(req);
-  const rawLimit = Number(req.query.limit);
-  const limit = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 20, 100));
+  const limit = queryInt(req.query.limit, { min: 1, max: 100, fallback: 20 });
   const since = Number(req.query.cursor);
   const rows = await store.query({
-    since: Number.isFinite(since) ? since : undefined,
+    since: Number.isFinite(since) && since > 0 ? since : undefined,
     limit: limit + 1 // +1 so we can tell whether another page exists
   });
   const hasMore = rows.length > limit;
@@ -90,38 +85,43 @@ router.get('/', ah(async (req, res) => {
 }));
 
 router.get('/keystats', ah(async (req, res) => {
+  const limit = scanLimit(req);
+  const rows = await (await storeFor(req)).query({ limit });
   const chars = {};
-  for (const s of await (await storeFor(req)).all()) {
+  for (const s of rows) {
     for (const [ch, v] of Object.entries(s.charStats || {})) {
       const cur = chars[ch] || { t: 0, e: 0 };
-      cur.t += Number(v.t) || 0;
-      cur.e += Number(v.e) || 0;
+      cur.t += Number(v?.t) || 0;
+      cur.e += Number(v?.e) || 0;
       chars[ch] = cur;
     }
   }
-  res.json({ chars });
+  res.json({ chars, scanned: rows.length, limit, truncated: rows.length >= limit });
 }));
 
 router.get('/fingerstats', ah(async (req, res) => {
+  const limit = scanLimit(req);
+  const rows = await (await storeFor(req)).query({ limit });
   const fingers = {};
-  for (const s of await (await storeFor(req)).all()) {
+  for (const s of rows) {
     for (const [ch, v] of Object.entries(s.charStats || {})) {
       const f = fingerOf(ch);
       if (!f) continue;
       const cur = fingers[f] || { t: 0, e: 0 };
-      cur.t += Number(v.t) || 0;
-      cur.e += Number(v.e) || 0;
+      cur.t += Number(v?.t) || 0;
+      cur.e += Number(v?.e) || 0;
       fingers[f] = cur;
     }
   }
-  res.json({ fingers });
+  res.json({ fingers, scanned: rows.length, limit, truncated: rows.length >= limit });
 }));
 
 router.get('/benchmark/:snippetId', ah(async (req, res) => {
-  const id = String(req.params.snippetId).slice(0, 80);
-  // Filter pushed to the store (`.eq('snippet_id', …)`) instead of loading
-  // every session and filtering in JS.
-  const times = (await (await storeFor(req)).query({ snippetId: id, limit: 500 }))
+  const id = queryStr(req.params.snippetId, 80);
+  if (!id) return res.status(400).json({ error: 'invalid_snippet_id' });
+  // Filter pushed to the store (`.eq('snippet_id', …)`) — one targeted query
+  // backed by sessions_user_snippet_idx, never a load-everything + JS filter.
+  const times = (await (await storeFor(req)).query({ snippetId: id, limit: SCAN_MAX }))
     .filter((s) => s.timeSec > 0)
     .map((s) => s.timeSec)
     .sort((a, b) => a - b);
@@ -134,10 +134,10 @@ router.get('/benchmark/:snippetId', ah(async (req, res) => {
 }));
 
 router.get('/pbest/:snippetId', ah(async (req, res) => {
-  const id = String(req.params.snippetId).slice(0, 80);
+  const id = queryStr(req.params.snippetId, 80);
+  if (!id) return res.status(400).json({ error: 'invalid_snippet_id' });
   let best = null;
-  // `.eq('snippet_id', …)` — only this snippet's runs come back from the store.
-  for (const s of await (await storeFor(req)).query({ snippetId: id, limit: 500 })) {
+  for (const s of await (await storeFor(req)).query({ snippetId: id, limit: SCAN_MAX })) {
     if (!Array.isArray(s.charTimes) || !s.charTimes.length || !s.timeSec) continue;
     if (!best || s.timeSec < best.timeSec) best = s;
   }
@@ -151,11 +151,15 @@ router.get('/pbest/:snippetId', ah(async (req, res) => {
   });
 }));
 
-// Group-by-snippet aggregation (needs the full set of the user's runs), then
-// offset-paginated on output — default 20 per page.
+// ── Offset-based pagination ────────────────────────────────────────────────
+// Group-by-snippet aggregation (bounded by the number of snippets a user has
+// ever typed — tens, not millions), so OFFSET is the right fit here: cheap,
+// and it lets the client jump around. Default 20 per page.
+// Response: { snippets, total, limit, offset, hasMore }
 router.get('/pbest-snippets', ah(async (req, res) => {
   const best = new Map();
-  for (const s of await (await storeFor(req)).all()) {
+  const rows = await (await storeFor(req)).query({ limit: SCAN_MAX });
+  for (const s of rows) {
     if (!s.snippetId || s.snippetId === 'unknown' || !Array.isArray(s.charTimes) || !s.charTimes.length || !s.timeSec) continue;
     const cur = best.get(s.snippetId);
     if (!cur || s.timeSec < cur.timeSec) {
@@ -173,24 +177,27 @@ router.get('/pbest-snippets', ah(async (req, res) => {
     }
   }
   const all = [...best.values()].sort((a, b) => b.createdAt - a.createdAt);
-  const limit = Math.max(1, Math.min(Number(req.query.limit) || 20, 100));
-  const offset = Math.max(0, Number(req.query.offset) || 0);
+  const limit = queryInt(req.query.limit, { min: 1, max: 100, fallback: 20 });
+  const offset = queryInt(req.query.offset, { min: 0, max: 100000, fallback: 0 });
+  const slice = all.slice(offset, offset + limit);
   res.json({
-    snippets: all.slice(offset, offset + limit),
+    snippets: slice,
     total: all.length,
     limit,
-    offset
+    offset,
+    hasMore: offset + slice.length < all.length
   });
 }));
 
 router.get('/pbests', ah(async (req, res) => {
-  const { mode, language } = req.query;
+  const mode = queryStr(req.query.mode, 24);
+  const language = queryStr(req.query.language, 24);
   const best = new Map();
-  // mode/language filters pushed to the store (.eq) instead of a JS filter.
+  // mode/language filters pushed to the store (.eq) — one indexed query.
   for (const s of await (await storeFor(req)).query({
-    mode: mode ? String(mode).slice(0, 24) : undefined,
-    language: language ? String(language).slice(0, 24) : undefined,
-    limit: 500
+    mode: mode || undefined,
+    language: language || undefined,
+    limit: SCAN_MAX
   })) {
     const key = `${s.mode}|${s.language}`;
     const cur = best.get(key);
@@ -207,11 +214,16 @@ router.get('/pbests', ah(async (req, res) => {
       });
     }
   }
-  res.json({ pbests: [...best.values()].sort((a, b) => b.wpm - a.wpm) });
+  const all = [...best.values()].sort((a, b) => b.wpm - a.wpm);
+  const limit = queryInt(req.query.limit, { min: 1, max: 100, fallback: 20 });
+  const offset = queryInt(req.query.offset, { min: 0, max: 100000, fallback: 0 });
+  const slice = all.slice(offset, offset + limit);
+  res.json({ pbests: slice, total: all.length, limit, offset, hasMore: offset + slice.length < all.length });
 }));
 
 router.get('/summary', ah(async (req, res) => {
-  const all = await (await storeFor(req)).all();
+  const limit = scanLimit(req);
+  const all = await (await storeFor(req)).query({ limit });
   const total = all.length;
   const avgWpm = total ? Math.round(all.reduce((sum, s) => sum + s.wpm, 0) / total) : 0;
   const totalErrors = all.reduce((sum, s) => sum + s.errors, 0);
@@ -219,8 +231,8 @@ router.get('/summary', ah(async (req, res) => {
   for (const s of all) {
     for (const [sym, val] of Object.entries(s.symbolStats || {})) {
       if (!symbolAgg[sym]) symbolAgg[sym] = { t: 0, e: 0 };
-      symbolAgg[sym].t += Number(val.t) || 0;
-      symbolAgg[sym].e += Number(val.e) || 0;
+      symbolAgg[sym].t += Number(val?.t) || 0;
+      symbolAgg[sym].e += Number(val?.e) || 0;
     }
   }
   const friction = Object.entries(symbolAgg)
@@ -237,7 +249,10 @@ router.get('/summary', ah(async (req, res) => {
     sessions: total,
     avgWpm,
     totalErrors,
-    topFriction: friction
+    topFriction: friction,
+    scanned: total,
+    limit,
+    truncated: total >= limit
   });
 }));
 

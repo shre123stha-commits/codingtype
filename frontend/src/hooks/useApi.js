@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { api } from '../utils/api.js';
+import { api, fetchCatalog } from '../utils/api.js';
 import { track } from '../utils/analytics.js';
 import { SNIPPETS } from '../data/snippets.js';
 import { ghostPointsFrom } from '../utils/ghostRace.js';
@@ -148,9 +148,11 @@ export function useCatalog() {
     const load = async () => {
       try {
         await api.health();
-        const res = await api.snippets();
+        // The catalog endpoint is paginated (100/page); walk it so the engine
+        // still gets every language/mode. One request today, correct forever.
+        const snippets = await fetchCatalog();
         if (!cancelled) {
-          setCatalog(res.snippets, 'api');
+          setCatalog(snippets, 'api');
           setApiOnline(true);
           return true;
         }
