@@ -1,0 +1,65 @@
+CODETYPE UPDATE - v1.8.0
+(the professional release: About / FAQ / Contact / Waitlist pages,
+custom 404, ad banner space, cookie consent, analytics setup,
+full SEO (sitemap, og-image, structured data), favicon,
+keyboard shortcuts, password show/hide)
+
+3 STEPS:
+
+1. Close any CodeType terminal windows that are open
+   (the black windows with scrolling text - "CodeType API" / "CodeType Web").
+
+2. Replace your old "codetype" folder with THIS new one.
+   - Delete (or rename) the old codetype folder first.
+   - Put this new folder in its place.
+
+3. Double-click  START-CODETYPE.bat  inside this folder.
+   It closes old servers, installs what's missing (first time only),
+   and starts both servers. Wait 10-15 seconds, then open:
+
+        http://localhost:5173
+
+   Hold Ctrl while clicking the refresh button.
+
+CHECK: the top-right corner of the page must say  v1.8.0
+
+NEW THINGS TO TRY:
+- Scroll to the bottom of any page: new footer with About / FAQ /
+  Waitlist / Contact. Those are now real pages with real URLs
+  (http://localhost:5173/about etc. - you can bookmark them).
+- Home page has two dashed "ADVERTISEMENT" boxes (a wide one above
+  the target picker, a tall one under the mode deck). To go live with
+  real ads, paste your ad network's code into the inner div of
+  frontend/src/components/AdSlot.jsx (marked "PASTE AD NETWORK CODE HERE").
+- First visit: a small COOKIES box appears bottom-left. Accept or
+  decline - you can change it later in the footer.
+- Press F1 (or ?) when not typing: keyboard shortcuts help.
+- Sign in / sign up: there is now a little eye on the password field
+  to see what you're typing.
+- Type a random URL (e.g. http://localhost:5173/xyz): custom 404 page.
+
+ONE-TIME SUPABASE (about 1 minute, safe to re-run):
+Open your Supabase dashboard -> SQL Editor -> paste the whole file
+supabase/schema.sql from this folder -> run it.
+v1.8 completes row-level security on ALL tables (every row is
+owner-only). Until you re-run it, everything still works exactly as before.
+
+OPTIONAL - TURN ON ANALYTICS (takes effect next dev-server start):
+Add ONE line to frontend/.env (then restart the servers):
+   VITE_ANALYTICS_ID=G-XXXXXXXXXX
+for Google Analytics 4 (Dashboard -> Admin -> Data Streams -> copy
+the Measurement ID), or:
+   VITE_ANALYTICS_ID=plausible
+   VITE_ANALYTICS_DOMAIN=your-domain.com
+for Plausible. Nothing is sent until a visitor accepts cookies,
+and with no VITE_ANALYTICS_ID set, nothing is sent at all.
+
+OPTIONAL - YOUR CONTACT EMAIL:
+Change the hello@codetype.dev default in
+frontend/src/utils/siteConfig.js (the CONTACT_EMAIL line).
+
+DEPLOYING THE LIVE SITE:
+Double-click deploy.bat (commits + pushes to the live site).
+The site already has vercel.json + sitemap.xml + robots.txt +
+og-image.png in this folder, so the marketing pages work at
+codetype-eight.vercel.app/about, /faq, /contact, /waitlist.

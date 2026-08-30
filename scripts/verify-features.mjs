@@ -42,11 +42,9 @@ const ok = (name, cond) => {
 const TITLES = {
   DAILY: 'DAILY CHALLENGE',
   DRILL: 'DRILL CATEGORY',
-  LANG: 'LANGUAGE',
   TARGET: 'TARGETS',
   IMPORT: 'IMPORT CODE',
-  AI: 'AI MICRO-DRILL',
-  FLAGS: 'MODES & FLAGS'
+  AI: 'AI MICRO-DRILL'
 };
 const deckTab = (label) => page.locator(`nav[aria-label="control deck sections"] button[title="${TITLES[label]}"]`);
 const deckContent = page.locator('nav[aria-label="control deck sections"] ~ div');
@@ -56,23 +54,23 @@ await page.waitForSelector('text=CONTROL DECK', { timeout: 15000 });
 
 // 1. tabs + features menu
 for (const t of ['TRAIN', 'RACE', 'ANALYTICS']) {
-  ok(`tab ${t} visible`, await page.locator(`nav button:has-text("${t}")`).count() === 1);
+  ok(`tab ${t} visible`, await page.locator(`header nav button:has-text("${t}")`).count() === 1);
 }
-await page.locator('nav button:has-text("FEATURES")').click();
+await page.locator('header nav button:has-text("FEATURES")').click();
 await page.waitForTimeout(300);
 ok('features: dropdown lists areas', (await page.locator('text=DAILY CHALLENGE').count()) >= 1 && (await page.locator('text=KEY HEATMAP').count()) >= 1);
 // direct navigation from menu items
 await page.locator('[role="menu"] button:has-text("AI MICRO-DRILL")').click();
 await page.waitForTimeout(400);
 ok('features: AI item navigates (train + AI tab)', (await deckContent.locator('button:has-text("GENERATE DRILL")').count()) === 1);
-await page.locator('nav button:has-text("FEATURES")').click();
+await page.locator('header nav button:has-text("FEATURES")').click();
 await page.waitForTimeout(200);
 await page.locator('[role="menu"] button:has-text("DAILY CHALLENGE")').click();
 await page.waitForTimeout(300);
 ok('features: DAILY item navigates (train + daily tab)', (await page.locator('button:has-text("RUN DAILY")').count()) === 1);
 
 // 2. ANALYTICS view renders
-await page.locator('nav button:has-text("ANALYTICS")').click();
+await page.locator('header nav button:has-text("ANALYTICS")').click();
 await page.waitForTimeout(800);
 ok('analytics: key heatmap', await page.locator('text=KEY HEATMAP').count() === 1);
 ok('analytics: finger panel', await page.locator('text=FINGER STRENGTH').count() === 1);
@@ -94,7 +92,7 @@ ok(`analytics: heatmap content fits its box (worst overflow ${heatFit.worst}px)`
 await shot(page, 'f-analytics.png');
 
 // 3. back to TRAIN, DAILY tab (default)
-await page.locator('nav button:has-text("TRAIN")').click();
+await page.locator('header nav button:has-text("TRAIN")').click();
 await page.waitForTimeout(600);
 const dailyMeta = await (await page.request.get('http://127.0.0.1:3001/api/daily')).json();
 const dailyFull = await (await page.request.get(`http://127.0.0.1:3001/api/snippets/${dailyMeta.snippetId}`)).json();
@@ -142,25 +140,26 @@ await page.waitForTimeout(300);
 const targetRows = await deckContent.locator('div.max-h-60 button').count();
 ok(`targets: dropdown lists ${targetRows} targets (>= 10)`, targetRows >= 10);
 
-// 6. blind mode (FLAGS tab)
-await deckTab('FLAGS').click();
+// 6. blind mode (live HUD chip — MODES & FLAGS tab moved into the HUD)
+const hud = page.locator('div.hud-card').filter({ hasText: 'WPM' }).first();
+await hud.getByRole('button', { name: 'BLIND', exact: true }).click(); // OFF -> 3CH
 await page.waitForTimeout(200);
-await page.locator('button:has-text("BLIND WINDOW")').click();
-await page.waitForTimeout(200);
-ok('blind: chip ON (3 CH)', (await page.locator('button:has-text("BLIND: 3 CH")').count()) === 1);
+ok('blind: HUD chip ON (3 CH)', (await hud.getByRole('button', { name: 'BLIND 3CH', exact: true }).count()) === 1);
 await page.locator('text=TYPING ARENA').click();
 await page.waitForTimeout(200);
 await page.keyboard.type('let x', { delay: 40 });
 await page.waitForTimeout(300);
 ok('blind: hidden chars rendered', (await page.locator('.c-blind').count()) > 0);
 await shot(page, 'f-blind.png', { clip: { x: 0, y: 100, width: 1280, height: 500 } });
-await page.locator('button:has-text("BLIND: 3 CH")').click(); // OFF
+await hud.getByRole('button', { name: 'BLIND 3CH', exact: true }).click(); // 3CH -> FULL
+ok('blind: cycles to FULL', (await hud.getByRole('button', { name: 'BLIND FULL', exact: true }).count()) === 1);
+await hud.getByRole('button', { name: 'BLIND FULL', exact: true }).click(); // FULL -> OFF
 
 // 7. ghost race: load a repo snippet via TARGET dropdown, type it fully (creates charTimes PB), restart, type 1 char
 await deckTab('DRILL').click();
 await page.getByRole('button', { name: 'REAL-REPO', exact: true }).click();
-await deckTab('LANG').click();
-await page.getByRole('button', { name: 'JS', exact: true }).click();
+// language now lives in the centered home row, not the deck
+await page.locator('div[aria-label="choose language"] button:has-text("JAVASCRIPT")').click();
 await page.waitForTimeout(700);
 const res = await (await page.request.get('http://127.0.0.1:3001/api/snippets?mode=repo&language=javascript')).json();
 const target = res.snippets[0];
@@ -201,7 +200,7 @@ const interviewLoaded = await page.evaluate(() => {
 ok(`interview: auto-loaded (${interviewLoaded})`, interviewLoaded.startsWith('interview/'));
 
 // 9. race view — reached via the FEATURES menu (direct navigation)
-await page.locator('nav button:has-text("FEATURES")').click();
+await page.locator('header nav button:has-text("FEATURES")').click();
 await page.waitForTimeout(300);
 await page.locator('[role="menu"] button:has-text("GHOST RACE")').click();
 await page.waitForTimeout(600);

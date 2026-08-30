@@ -23,6 +23,15 @@ function newCanvas(w, h) {
   return canvas;
 }
 
+function loadAvatar(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('avatar failed to load'));
+    img.src = src;
+  });
+}
+
 // char-by-char letter spacing (ctx.letterSpacing is not universal)
 function spaced(ctx, text, x, y, gap) {
   let cx = x;
@@ -185,7 +194,7 @@ function drawQR(ctx, x, y, box, text) {
 const LANG_LABELS = { python: 'PY', javascript: 'JS', java: 'JAVA', 'c++': 'C++', rust: 'RUST', sql: 'SQL' };
 
 // Derives everything the profile card shows from raw session rows.
-export function buildProfile({ sessions = [], authUser = null, streak = 0 }) {
+export function buildProfile({ sessions = [], authUser = null, streak = 0, profile = null }) {
   const feats = sessions.length;
   const totalChars = sessions.reduce((n, s) => n + (Number(s.chars) || 0), 0);
   const avgWpm = feats ? Math.round(sessions.reduce((n, s) => n + (Number(s.wpm) || 0), 0) / feats) : 0;
@@ -218,16 +227,22 @@ export function buildProfile({ sessions = [], authUser = null, streak = 0 }) {
       rankNext = `${TIERS[idx - 1][0]}-TIER`;
     }
   }
-  const handle = (authUser ? String(authUser).split('@')[0] : 'GUEST').toUpperCase();
-  return { handle, level, rank, rankPct, rankNext, feats, totalChars, avgWpm, avgAccuracy, bestWpm, languages, streak: streak || 0 };
+  // The real name (when set) wins over the email-derived handle everywhere
+  // the card shows the identity; `avatar` is the photo data-URL (or null).
+  const name = (profile && profile.name ? String(profile.name) : '').trim();
+  const avatar = (profile && profile.avatar) || null;
+  const base = name || (authUser ? String(authUser).split('@')[0] : 'GUEST');
+  const handle = base.toUpperCase();
+  const cardName = name ? name.toUpperCase() : authUser ? `@${handle}` : handle;
+  return { handle, cardName, avatar, level, rank, rankPct, rankNext, feats, totalChars, avgWpm, avgAccuracy, bestWpm, languages, streak: streak || 0 };
 }
 
 export function profileQrText(p) {
-  return truncate(`CodeType @${p.handle} - Lv ${p.level} / ${p.rank}-TIER - ${p.feats} runs - ${p.avgWpm} WPM avg - ${p.avgAccuracy}% acc`, 100);
+  return truncate(`CodeType ${p.cardName} - Lv ${p.level} / ${p.rank}-TIER - ${p.feats} runs - ${p.avgWpm} WPM avg - ${p.avgAccuracy}% acc`, 100);
 }
 
 export function profileShareText(p) {
-  return `${p.handle} · Level ${p.level} · ${p.rank}-TIER on CodeType — ${p.feats} runs · ${p.avgWpm} WPM avg · ${p.avgAccuracy}% acc. Type the code you actually ship. #CodeType`;
+  return `${p.cardName} · Level ${p.level} · ${p.rank}-TIER on CodeType — ${p.feats} runs · ${p.avgWpm} WPM avg · ${p.avgAccuracy}% acc. Type the code you actually ship. #CodeType`;
 }
 
 export async function renderProfileCard(profile, themeId) {
@@ -259,23 +274,53 @@ export async function renderProfileCard(profile, themeId) {
     ctx.lineTo(ax + Math.cos(a) * (r + 18), ay + Math.sin(a) * (r + 18));
     ctx.stroke();
   }
-  ctx.fillStyle = p.panel;
-  ctx.beginPath();
-  ctx.arc(ax, ay, r - 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = p.accent;
-  ctx.font = `700 72px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(q.handle.slice(0, 2) || 'CT', ax, ay + 8);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
+  // avatar: the user's own photo (circle-cropped) when set, else @HANDLE initials
+  let avatarImg = null;
+  if (q.avatar) {
+    try {
+      avatarImg = await loadAvatar(q.avatar);
+    } catch {
+      avatarImg = null;
+    }
+  }
+  if (avatarImg) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ax, ay, r - 12, 0, Math.PI * 2);
+    ctx.clip();
+    const side = (r - 12) * 2;
+    const sw = Math.min(avatarImg.width, avatarImg.height);
+    ctx.drawImage(
+      avatarImg,
+      (avatarImg.width - sw) / 2,
+      (avatarImg.height - sw) / 2,
+      sw,
+      sw,
+      ax - (r - 12),
+      ay - (r - 12),
+      side,
+      side
+    );
+    ctx.restore();
+  } else {
+    ctx.fillStyle = p.panel;
+    ctx.beginPath();
+    ctx.arc(ax, ay, r - 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = p.accent;
+    ctx.font = `700 72px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(q.handle.slice(0, 2) || 'CT', ax, ay + 8);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
 
   // name block
   const nx = 320;
   ctx.fillStyle = p.ink;
   ctx.font = `700 44px ${FONT}`;
-  ctx.fillText(`@${q.handle}`, nx, 352);
+  ctx.fillText(truncate(q.cardName, 22), nx, 352);
   ctx.fillStyle = p.accent;
   ctx.font = `700 26px ${FONT}`;
   spaced(ctx, `LEVEL ${q.level}`, nx, 404, 4);
@@ -344,7 +389,7 @@ export async function renderProfileCard(profile, themeId) {
   drawQR(ctx, W - 60 - 170, qrY, 170, profileQrText(q));
   ctx.fillStyle = p.ink;
   ctx.font = `600 20px ${FONT}`;
-  spaced(ctx, `CODETYPE.IO | @${q.handle}`, 60, qrY + 52, 2);
+  spaced(ctx, `CODETYPE.IO | ${q.cardName}`, 60, qrY + 52, 2);
   ctx.fillStyle = p.dim;
   ctx.font = `500 15px ${FONT}`;
   ctx.fillText('SCAN FOR PROFILE SNAPSHOT', 60, qrY + 86);

@@ -4,6 +4,7 @@ import AuthMenu from './AuthMenu.jsx';
 import { useGameStore } from '../store/gameStore.js';
 import { THEME_META } from '../utils/themes.js';
 import { apiUrl } from '../utils/env.js';
+import { FE_VERSION } from '../utils/siteConfig.js';
 
 function Swatch({ swatch, className = '' }) {
   return (
@@ -92,7 +93,8 @@ function ThemeMenu() {
 const VIEWS = [
   ['train', 'TRAIN'],
   ['race', 'RACE'],
-  ['analytics', 'ANALYTICS']
+  ['analytics', 'ANALYTICS'],
+  ['profile', 'PROFILE']
 ];
 
 function ViewTabs() {
@@ -235,15 +237,40 @@ function FeaturesMenu() {
 }
 
 // Bump on every deploy so users can see at a glance which build is running
-// (top-right corner, amber). v1.4.0 = glide caret anchored on the words +
-// WPM race (live WPM for both players).
-const FE_VERSION = '1.4.0';
+// (top-right corner, amber). v1.7.0 = profiles: name + photo, top bar shows
+// the name (not the email), sign-in dropdown, PROFILE tab, photo on flash
+// cards; v1.6.0 = form-field keystrokes no longer hijack the typing engine
+// (auth fix); v1.5.0 = home language row, HUD settings with tooltips,
+// auto-pause, drill NEW, ghost gate, 3-2-1 race start.
+
 
 export default function TopBar() {
   const snippet = useGameStore((s) => s.snippet);
   const apiOnline = useGameStore((s) => s.apiOnline);
   const catalogSource = useGameStore((s) => s.catalogSource);
   const [apiVersion, setApiVersion] = useState('1.0.0');
+
+  // CODETYPE logo = home: jump to the train view and reset any live run
+  const goHome = () => {
+    // leave a site page (/about, …) so the URL matches the view again
+    if (window.location.pathname !== '/') {
+      try {
+        window.history.replaceState({}, '', '/');
+      } catch {
+        /* non-browser context */
+      }
+    }
+    const st = useGameStore.getState();
+    st.setView('train');
+    st.setDeckTab('daily');
+    if (st.status === 'running' || st.status === 'paused' || st.status === 'finished') st.restart();
+  };
+  // Flash cards get a permanent, high-visibility home in the top bar
+  const openCards = () => {
+    const st = useGameStore.getState();
+    st.setView('train');
+    st.setDeckTab('flash');
+  };
 
   useEffect(() => {
     if (!apiOnline) return;
@@ -255,17 +282,22 @@ export default function TopBar() {
       })
       .catch(() => {});
     return () => {
-      cancelled = true;
+      cancelled = false;
     };
   }, [apiOnline]);
 
   return (
     <header className="sticky top-0 z-20 flex h-12 items-center justify-between gap-3 border-b border-edge bg-panel/85 px-5 backdrop-blur">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="shrink-0 text-lg font-bold text-accent">
+        <button
+          type="button"
+          onClick={goHome}
+          title="Back to home"
+          className="shrink-0 cursor-pointer text-lg font-bold text-accent transition-opacity hover:opacity-75"
+        >
           <span className="mr-1 inline-block h-4 w-2.5 translate-y-[2px] animate-blink bg-accent align-baseline" />
           CODETYPE
-        </span>
+        </button>
         <ViewTabs />
       </div>
 
@@ -284,6 +316,14 @@ export default function TopBar() {
       )}
 
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={openCards}
+          title="Generate a shareable flash card — profile or run, PNG in one click"
+          className="chip chip-on-cyan !px-3 !py-1 !text-[10px]"
+        >
+          ⚡ CARDS
+        </button>
         <AuthMenu />
         <ThemeMenu />
 

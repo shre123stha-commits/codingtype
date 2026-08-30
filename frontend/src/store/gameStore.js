@@ -20,6 +20,29 @@ function initialTheme() {
   return 'midnight';
 }
 
+// Device profile (display name + photo data-URL). Persisted in localStorage so
+// guests and signed-in users both keep a name/photo across reloads; the cloud
+// (Supabase profiles table) mirrors it per account when signed in.
+function loadLocalProfile() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('codetype-profile');
+      if (raw) {
+        const j = JSON.parse(raw);
+        return {
+          name: typeof j.name === 'string' ? j.name.trim() : '',
+          avatar: typeof j.avatar === 'string' && j.avatar ? j.avatar : null
+        };
+      }
+    }
+  } catch {
+    /* private mode */
+  }
+  return { name: '', avatar: null };
+}
+
+const LOCAL_PROFILE = loadLocalProfile();
+
 const freshSession = () => ({
   pointer: 0,
   errors: {},
@@ -40,8 +63,12 @@ const freshSession = () => ({
   startTime: 0,
   pausedMs: 0,
   pauseStart: 0,
+  lastKeyAt: 0, // timestamp of the last committed key — drives auto-pause
+  autoPaused: false, // true when the 5s-idle rule paused the run (not ESC)
   lastRun: null
 });
+
+const AUTO_PAUSE_MS = 5000; // no keys for 5s straight -> auto-pause
 
 function bumpSymbol(stats, key, isError) {
   if (!key) return stats;
@@ -74,6 +101,8 @@ export const useGameStore = create((set, get) => ({
   catalogSource: 'loading',
   apiOnline: false,
   authUser: null, // signed-in email, or null = guest (local data)
+  profileName: LOCAL_PROFILE.name, // shown in the top bar (instead of the email)
+  profileAvatar: LOCAL_PROFILE.avatar, // data-URL photo — top bar, dropdown, flash cards
   uiOpen: false,
   theme: initialTheme(),
 
@@ -103,6 +132,18 @@ export const useGameStore = create((set, get) => ({
   },
   setAuthUser(v) {
     set({ authUser: v });
+  },
+  // { name?, avatar? } — partial update; persists to the device profile.
+  setProfile(patch) {
+    const s = get();
+    const name = patch.name !== undefined ? String(patch.name || '').trim() : s.profileName;
+    const avatar = patch.avatar !== undefined ? (patch.avatar || null) : s.profileAvatar;
+    try {
+      localStorage.setItem('codetype-profile', JSON.stringify({ name, avatar }));
+    } catch {
+      /* private mode */
+    }
+    set({ profileName: name, profileAvatar: avatar });
   },
   setUiOpen(v) {
     set({ uiOpen: v });
@@ -181,13 +222,25 @@ export const useGameStore = create((set, get) => ({
   togglePause(now) {
     const s = get();
     if (s.status === 'running') {
-      set({ status: 'paused', pauseStart: now });
+      set({ status: 'paused', pauseStart: now, autoPaused: false });
     } else if (s.status === 'paused') {
       set({
         status: 'running',
         pausedMs: s.pausedMs + (now - s.pauseStart),
-        pauseStart: 0
+        pauseStart: 0,
+        autoPaused: false,
+        lastKeyAt: now // resume counts as activity — restarts the 5s idle clock
       });
+    }
+  },
+
+  // Called by the global ticker: 5s without a single key (solo runs only —
+  // a live 1v1 race keeps its own clock) auto-pauses the test.
+  autoPauseCheck(now) {
+    const s = get();
+    if (s.status !== 'running' || !s.startTime || s.rival || s.inputLocked) return;
+    if (s.lastKeyAt && now - s.lastKeyAt > AUTO_PAUSE_MS) {
+      set({ status: 'paused', pauseStart: now, autoPaused: true });
     }
   },
 
@@ -318,6 +371,7 @@ export const useGameStore = create((set, get) => ({
 
     const commit = () => {
       w.ghost = cleanGhost(w.ghost, w.pointer);
+      w.lastKeyAt = now; // feed the 5s idle auto-pause
       set({
         ...w,
         status: wasIdle && (w.pointer > 0 || w.attempts > 0) ? 'running' : s.status,
@@ -517,4 +571,12 @@ export const useGameStore = create((set, get) => ({
 
 if (typeof document !== 'undefined') {
   document.documentElement.dataset.theme = useGameStore.getState().theme;
+}
+
+// DEV-ONLY test seam (vite dev builds): lets Playwright probes read/drive the
+// store directly. import.meta.env.DEV is false in every production build, so
+// this never ships. (import.meta.env is undefined under plain Node — scripts
+// import this store directly — hence the ?? {} guard, same as utils/env.js.)
+if ((import.meta.env ?? {}).DEV && typeof window !== 'undefined') {
+  window.__ctStore = useGameStore;
 }

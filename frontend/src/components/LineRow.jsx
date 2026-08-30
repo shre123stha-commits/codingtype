@@ -65,7 +65,7 @@ function LineRow({
     let state;
     if (i < pointer) {
       state = errChar ? 'err' : autoSet.has(i) ? 'auto' : 'done';
-    } else if (blind !== null && !(i > pointer && i <= pointer + blind)) {
+    } else if (blind !== null && !(i >= pointer && i < pointer + blind)) {
       state = 'blind';
     } else if (pending && i >= pending[0] && i < pending[1]) {
       state = 'pindent';

@@ -4,21 +4,120 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b0f19" />
+    <title>CodeType — Dev-Tuned Typing Telemetry</title>
     <meta
       name="description"
-      content="CodeType — tactical typing telemetry for software developers. Train the symbols, braces, and arrows of real production code."
+      content="CodeType — tactical typing telemetry for software developers. Train the symbols, braces, and arrows of real production code. Free, in the browser, no account required."
     />
-    <title>CODETYPE // Dev-Tuned Typing Telemetry</title>
+    <meta name="author" content="CodeType" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://codetype-eight.vercel.app/" />
+
+    <!-- Open Graph / social cards -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CodeType" />
+    <meta property="og:title" content="CodeType — Dev-Tuned Typing Telemetry" />
+    <meta
+      property="og:description"
+      content="Train the symbols, braces and arrows of real production code. Blind modes, 1v1 ghost races, per-key telemetry — free in the browser."
+    />
+    <meta property="og:url" content="https://codetype-eight.vercel.app/" />
+    <meta property="og:image" content="https://codetype-eight.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="CodeType — dev-tuned typing telemetry: a code editor with a blinking caret" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CodeType — Dev-Tuned Typing Telemetry" />
+    <meta
+      name="twitter:description"
+      content="Train the symbols, braces and arrows of real production code. Free, in the browser."
+    />
+    <meta name="twitter:image" content="https://codetype-eight.vercel.app/og-image.png" />
+
+    <!-- Favicon / app icons -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0f19'/%3E%3Crect x='7' y='7' width='9' height='18' fill='%23facc15'/%3E%3Crect x='20' y='12' width='6' height='8' fill='%2338bdf8'/%3E%3C/svg%3E"
+    />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
       rel="stylesheet"
     />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0f19'/%3E%3Crect x='7' y='7' width='9' height='18' fill='%23facc15'/%3E%3Crect x='20' y='12' width='6' height='8' fill='%2338bdf8'/%3E%3C/svg%3E"
-    />
+
+    <!-- Structured data: the app itself -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "CodeType",
+        "url": "https://codetype-eight.vercel.app/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Any (web browser)",
+        "browserRequirements": "Requires JavaScript",
+        "description": "Tactical typing telemetry for software developers. Type real production code with live WPM, accuracy and per-key symbol telemetry. Includes blind training modes and 1v1 ghost races.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "publisher": { "@type": "Organization", "name": "CodeType", "url": "https://codetype-eight.vercel.app/" },
+        "about": "Typing practice, developer coding speed, keyboard muscle memory",
+        "keywords": "typing trainer, code typing, developer typing practice, blind typing, WPM"
+      }
+    </script>
+
+    <!-- Structured data: FAQ (kept in sync with frontend/src/pages/FaqPage.jsx) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is CodeType?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "A typing trainer built for software developers. You type real production code — Express routers, React components, SQL, Rust — instead of random dictionary words, and get WPM, accuracy and per-key telemetry for the symbols you actually use every day."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How is it different from Monkeytype or TypingClub?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Those train general words from lorem ipsum. CodeType trains development syntax: braces, quotes, arrows, semicolons. Its blind modes hide characters ahead of your caret, which builds chunk-level muscle memory for code patterns instead of letter-by-letter reading."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What does BLIND 3CH actually train?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Blind mode hides the text and reveals only the few characters right in front of your caret. 3CH shows three characters ahead, so your brain stops reading one glyph at a time and starts recognizing symbol patterns — the way experienced developers read code on a dark terminal."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Where is my typing data stored?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "By default everything stays in your browser (localStorage) — nothing is uploaded. If you create an account with email + password, your sessions, personal bests and profile sync to your own Supabase cloud account. Those rows are protected by row-level security, so only you can read them."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is CodeType free?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes — free, with no paywall. The site is supported by the unobtrusive ad banners you may see. The waitlist is only for early access to new features; it is never a paywall announcement."
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

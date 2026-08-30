@@ -10,6 +10,7 @@ import snippetsRouter from './src/routes/snippets.js';
 import sessionsRouter from './src/routes/sessions.js';
 import dailyRouter from './src/routes/daily.js';
 import drillsRouter from './src/routes/drills.js';
+import waitlistRouter from './src/routes/waitlist.js';
 import { createRaceWs } from './src/ws/race.js';
 import { supaConfigured } from './src/store/supaStore.js';
 
@@ -30,7 +31,7 @@ process.on('uncaughtException', (err) => logCrash('uncaughtException', err));
 process.on('unhandledRejection', (err) => logCrash('unhandledRejection', err));
 
 const app = express();
-const API_VERSION = '1.3.0';
+const API_VERSION = '1.8.0';
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
@@ -53,6 +54,8 @@ app.get('/', (req, res) => {
       'GET /api/sessions/pbest/:snippetId': 'fastest run for a snippet (ghost race data)',
       'GET /api/daily': "today's challenge + streak + top runs",
       'GET /api/drills/adaptive': 'worst friction symbols for AI micro-drills',
+      'GET /api/waitlist': 'waitlist count',
+      'POST /api/waitlist': 'join the waitlist ({ email })',
       'WS /api/ws': '1v1 race lobbies (create/join-by-code/start/progress/finish/result)',
       'AUTH': 'optional Supabase accounts — send "Authorization: Bearer <jwt>" to read/write that user\'s cloud data; without it data stays local'
     }
@@ -67,6 +70,7 @@ app.use('/api/snippets', snippetsRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/daily', dailyRouter);
 app.use('/api/drills', drillsRouter);
+app.use('/api/waitlist', waitlistRouter);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -55,3 +55,48 @@ create policy "users update own sessions"
 -- (Accounts themselves live in Supabase Auth — email + password is enabled
 --  by default. If you want to skip the confirmation email:
 --  Authentication → Providers → Email → turn OFF "Confirm email".)
+
+-- ============================================================
+-- v1.7 — operator profile (display name + photo data-URL).
+-- One row per user, created lazily by the app on first sign-in
+-- with a name/photo set. Re-running this whole file is safe —
+-- every statement above is idempotent.
+-- ============================================================
+
+create table if not exists public.profiles (
+  id            uuid primary key references auth.users (id) on delete cascade,
+  display_name  text,
+  avatar        text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "users select own profile" on public.profiles;
+create policy "users select own profile"
+  on public.profiles for select
+  using (auth.uid() = id);
+
+drop policy if exists "users insert own profile" on public.profiles;
+create policy "users insert own profile"
+  on public.profiles for insert
+  with check (auth.uid() = id);
+
+drop policy if exists "users update own profile" on public.profiles;
+create policy "users update own profile"
+  on public.profiles for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+-- ============================================================
+-- v1.8 — complete the profiles RLS set.
+-- (sessions already has select/insert/update/delete owner-scoped
+--  policies above; profiles was missing DELETE.) Re-running this
+--  whole file stays safe — every statement is idempotent.
+-- ============================================================
+
+drop policy if exists "users delete own profile" on public.profiles;
+create policy "users delete own profile"
+  on public.profiles for delete
+  using (auth.uid() = id);

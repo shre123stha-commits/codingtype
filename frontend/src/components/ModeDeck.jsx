@@ -27,15 +27,15 @@ const LANGS = [
 
 const BLIND_LABEL = { 3: 'BLIND: 3 CH', 0: 'BLIND: FULL' };
 
+// LANG moved to the center of the home page; MODES & FLAGS moved into the
+// live HUD (where WPM/RAW are shown) with per-option tooltips.
 const TABS = [
   { id: 'daily', num: '01', label: 'DAILY', title: 'DAILY CHALLENGE' },
   { id: 'drill', num: '02', label: 'DRILL', title: 'DRILL CATEGORY' },
-  { id: 'lang', num: '03', label: 'LANG', title: 'LANGUAGE' },
-  { id: 'target', num: '04', label: 'TARGET', title: 'TARGETS' },
-  { id: 'import', num: '05', label: 'IMPORT', title: 'IMPORT CODE' },
-  { id: 'aidrill', num: '06', label: 'AI', title: 'AI MICRO-DRILL' },
-  { id: 'flags', num: '07', label: 'FLAGS', title: 'MODES & FLAGS' },
-  { id: 'flash', num: '08', label: 'CARDS', title: 'FLASH CARDS' }
+  { id: 'target', num: '03', label: 'TARGET', title: 'TARGETS' },
+  { id: 'import', num: '04', label: 'IMPORT', title: 'IMPORT CODE' },
+  { id: 'aidrill', num: '05', label: 'AI', title: 'AI MICRO-DRILL' },
+  { id: 'flash', num: '06', label: 'CARDS', title: 'FLASH CARDS' }
 ];
 
 function SectionTitle({ num, title }) {
@@ -121,6 +121,39 @@ export default function ModeDeck() {
   const shuffle = () => {
     if (!filtered.length) return;
     const pick = filtered[Math.floor(Math.random() * filtered.length)];
+    if (pick) loadSnippet(pick);
+  };
+
+  // Drill "NEW": hand out a fresh target from the SAME domain (mode +
+  // language), cycling through every target in the domain before any
+  // repeats. Resets its own order when the domain changes.
+  const newSeq = useRef({ key: '', order: [] });
+  const nextNew = () => {
+    const key = `${mode}|${language}`;
+    if (newSeq.current.key !== key || !newSeq.current.order.length) {
+      const ids = filtered.map((s) => s.id);
+      for (let i = ids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+      }
+      newSeq.current = { key, order: ids };
+    }
+    const cur = snippet?.id;
+    let pick = null;
+    while (newSeq.current.order.length && !pick) {
+      const id = newSeq.current.order.pop();
+      if (id !== cur) pick = filtered.find((s) => s.id === id) || null;
+    }
+    if (!pick) {
+      // domain exhausted — reshuffle (excluding the current one) and repeat
+      const ids = filtered.filter((s) => s.id !== cur).map((s) => s.id);
+      for (let i = ids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+      }
+      newSeq.current.order = ids;
+      pick = filtered.find((s) => s.id === ids[ids.length - 1]) || null;
+    }
     if (pick) loadSnippet(pick);
   };
 
@@ -273,33 +306,24 @@ export default function ModeDeck() {
                 ))}
               </div>
               <p className="mt-2 text-[10px] leading-relaxed text-faint">{MODE_META[mode].blurb}</p>
-            </>
-          ) : null}
-
-          {tab === 'lang' ? (
-            <>
-              <SectionTitle num="03" title={activeTab.title} />
-              <div className="grid grid-cols-3 gap-2">
-                {LANGS.map((l) => (
-                  <button
-                    key={l.id}
-                    type="button"
-                    onClick={() => setLanguage(l.id)}
-                    className={`chip ${language === l.id ? 'chip-on-cyan' : 'chip-off'}`}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-[10px] leading-relaxed text-faint">
-                Switching mode or language auto-deploys a fresh random target.
+              <button
+                type="button"
+                onClick={nextNew}
+                disabled={!filtered.length}
+                className="chip chip-on-amber mt-2.5 w-full py-2 text-[10px] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ⚡ NEW — SAME DOMAIN
+              </button>
+              <p className="mt-1.5 text-[9px] leading-relaxed tracking-[0.06em] text-faint">
+                EACH CLICK LOADS A FRESH {MODE_META[mode].label} TARGET — ALL {filtered.length} CYCLE BEFORE ANY REPEAT.
               </p>
             </>
           ) : null}
 
+
           {tab === 'target' ? (
             <div ref={targetRef}>
-              <SectionTitle num="04" title={activeTab.title} />
+              <SectionTitle num="03" title={activeTab.title} />
               <button
                 type="button"
                 onClick={() => setTargetOpen((v) => !v)}
@@ -374,74 +398,22 @@ export default function ModeDeck() {
 
           {tab === 'import' ? (
             <>
-              <SectionTitle num="05" title={activeTab.title} />
+              <SectionTitle num="04" title={activeTab.title} />
               <ImportPanel />
             </>
           ) : null}
 
           {tab === 'aidrill' ? (
             <>
-              <SectionTitle num="06" title={activeTab.title} />
+              <SectionTitle num="05" title={activeTab.title} />
               <AdaptivePanel />
             </>
           ) : null}
 
-          {tab === 'flags' ? (
-            <>
-              <SectionTitle num="07" title={activeTab.title} />
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStrictMode(true)}
-                  className={`chip ${strictMode ? 'chip-on-amber' : 'chip-off'}`}
-                >
-                  STRICT
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStrictMode(false)}
-                  className={`chip ${!strictMode ? 'chip-on-amber' : 'chip-off'}`}
-                >
-                  NATURAL
-                </button>
-              </div>
-              <p className="mb-2 mt-2 text-[10px] leading-relaxed text-faint">
-                {strictMode
-                  ? 'Blocked on errors — the correct key must land to advance.'
-                  : 'Flow preserved — errors render inline in soft red.'}
-              </p>
-              <div className="space-y-2">
-                <ToggleRow
-                  label="GHOST PAIRS"
-                  active={ghostMode}
-                  onToggle={() => setGhostMode(!ghostMode)}
-                  accent="cyan"
-                />
-                <ToggleRow
-                  label="INDENT ASSIST"
-                  active={indentAssist}
-                  onToggle={() => setIndentAssist(!indentAssist)}
-                  accent="cyan"
-                />
-                <button
-                  type="button"
-                  onClick={cycleBlind}
-                  className={`chip w-full text-left ${blind !== null ? 'chip-on-cyan' : 'chip-off'}`}
-                  title="delayed reveal — train typing without reading the screen"
-                >
-                  <span className="mr-2">{blind !== null ? 'ON' : 'OFF'}</span>
-                  {BLIND_LABEL[blind] || 'BLIND WINDOW'}
-                </button>
-              </div>
-              <p className="mt-2 text-[9px] leading-relaxed tracking-[0.06em] text-faint">
-                BLIND HIDES THE CODE AHEAD OF THE CARET (3 CH WINDOW, OR FULLY). GHOST PAIRS FAINT THE CLOSE BRACKET.
-              </p>
-            </>
-          ) : null}
 
           {tab === 'flash' ? (
             <>
-              <SectionTitle num="08" title={activeTab.title} />
+              <SectionTitle num="06" title={activeTab.title} />
               <FlashCardsView />
             </>
           ) : null}
