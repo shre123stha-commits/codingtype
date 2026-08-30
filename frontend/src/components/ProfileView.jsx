@@ -144,7 +144,7 @@ export default function ProfileView() {
           <div className="hud-label mb-3">IDENTITY</div>
           <div className="flex items-start gap-4">
             {profileAvatar ? (
-              <img src={profileAvatar} alt="profile photo" className="h-24 w-24 shrink-0 rounded-full border-2 border-accent object-cover" />
+              <img src={profileAvatar} alt="profile photo" decoding="async" className="h-24 w-24 shrink-0 rounded-full border-2 border-accent object-cover" />
             ) : (
               <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-accent bg-panel2 text-2xl font-bold text-accent">
                 {(name.slice(0, 2) || 'CT').toUpperCase()}

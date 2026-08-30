@@ -58,10 +58,17 @@ const allowedOrigins = String(process.env.CORS_ORIGIN || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
+// maxAge caches the CORS preflight in the browser for 10 minutes. Without it
+// every cross-origin call from the Vercel frontend to the Render API pays for
+// an extra OPTIONS round trip — and the X-Guest-Id header makes every request
+// non-simple, so that preflight would otherwise happen on every single call.
+const CORS_MAX_AGE = String(numEnv('CORS_MAX_AGE', 600));
+
 app.use(
   cors(
     allowedOrigins.length
       ? {
+          maxAge: CORS_MAX_AGE,
           origin(origin, cb) {
             // no origin = same-origin / curl / native clients → allow
             if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
@@ -72,7 +79,7 @@ app.use(
         // cookies), so a wildcard cannot leak a signed-in user's rows to
         // another origin — but it does let any site call the public endpoints.
         // Set CORS_ORIGIN=https://your-frontend.vercel.app to lock it down.
-        { origin: '*', credentials: false }
+        { origin: '*', credentials: false, maxAge: CORS_MAX_AGE }
   )
 );
 

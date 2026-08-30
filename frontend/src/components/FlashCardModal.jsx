@@ -77,7 +77,7 @@ export default function FlashCardModal({ open, title, canvas, text, onClose }) {
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto bg-obsidian/60 p-4">
-          {imgUrl ? <img src={imgUrl} alt={title || 'flash card'} className="mx-auto w-full max-w-[340px]" /> : null}
+          {imgUrl ? <img src={imgUrl} alt={title || 'flash card'} decoding="async" className="mx-auto w-full max-w-[340px]" /> : null}
         </div>
         <div className="grid grid-cols-2 gap-2 border-t border-edge p-3">
           <button

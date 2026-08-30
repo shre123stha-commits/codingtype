@@ -272,7 +272,7 @@ export default function AuthMenu() {
         title={authUser}
       >
         {profileAvatar ? (
-          <img src={profileAvatar} alt="" className="mr-1.5 h-4 w-4 shrink-0 rounded-full border border-edge object-cover" />
+          <img src={profileAvatar} alt="" decoding="async" className="mr-1.5 h-4 w-4 shrink-0 rounded-full border border-edge object-cover" />
         ) : (
           <span className="mr-1.5">◉</span>
         )}
@@ -287,7 +287,7 @@ export default function AuthMenu() {
         >
           <div className="flex items-center gap-2.5">
             {profileAvatar ? (
-              <img src={profileAvatar} alt="" className="h-10 w-10 shrink-0 rounded-full border border-accent object-cover" />
+              <img src={profileAvatar} alt="" decoding="async" className="h-10 w-10 shrink-0 rounded-full border border-accent object-cover" />
             ) : (
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent bg-panel2 text-[13px] font-bold text-accent">
                 {(name.slice(0, 2) || 'CT').toUpperCase()}
