@@ -1,11 +1,17 @@
+import { lazy, Suspense } from 'react';
+
 import AdSlot from './AdSlot.jsx';
-import DiagnosticDashboard from './DiagnosticDashboard.jsx';
 import FrictionPreview from './FrictionPreview.jsx';
 import LiveHud from './LiveHud.jsx';
 import ModeDeck from './ModeDeck.jsx';
 import TypingArena from './TypingArena.jsx';
 import { useTypingEngine } from '../hooks/useTypingEngine.js';
 import { useGameStore } from '../store/gameStore.js';
+
+// The post-run diagnostics panel (and its recharts dependency) only matter
+// once a session finishes — load it on demand instead of shipping recharts in
+// the initial bundle.
+const DiagnosticDashboard = lazy(() => import('./DiagnosticDashboard.jsx'));
 
 // Languages live at the center of the home page now — pick one directly,
 // no digging through the control deck.
@@ -51,10 +57,11 @@ export default function TrainView() {
       </div>
       <div className="order-1 space-y-4 xl:order-2">
         {status === 'finished' ? (
-          <DiagnosticDashboard />
+          <Suspense fallback={<div className="p-10 text-center text-[10px] tracking-[0.3em] text-faint">ANALYZING…</div>}>
+            <DiagnosticDashboard />
+          </Suspense>
         ) : (
           <>
-            <AdSlot variant="leaderboard" />
             <p className="pt-1 text-center text-[10px] font-semibold tracking-[0.34em] text-faint">
               TYPE REAL CODE · TRAIN THE MUSCLE MEMORY
             </p>
@@ -67,6 +74,7 @@ export default function TrainView() {
       <div className="order-3">
         {/* SESSION LOG lives in the ANALYTICS tab — home stays clean */}
         <FrictionPreview />
+        <AdSlot variant="box" className="mt-4" />
       </div>
     </main>
   );

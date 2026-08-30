@@ -1,26 +1,30 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 
-import AnalyticsView from './components/AnalyticsView.jsx';
 import CookieConsent from './components/CookieConsent.jsx';
 import KeyLegend from './components/KeyLegend.jsx';
 import KeyboardHelp from './components/KeyboardHelp.jsx';
 import ProfileNamePrompt from './components/ProfileNamePrompt.jsx';
-import ProfileView from './components/ProfileView.jsx';
-import RaceView from './components/RaceView.jsx';
 import SiteFooter from './components/SiteFooter.jsx';
 import TopBar from './components/TopBar.jsx';
 import TrainView from './components/TrainView.jsx';
-import AboutPage from './pages/AboutPage.jsx';
-import ContactPage from './pages/ContactPage.jsx';
-import FaqPage from './pages/FaqPage.jsx';
-import NotFoundPage from './pages/NotFoundPage.jsx';
-import WaitlistPage from './pages/WaitlistPage.jsx';
 import { useCatalog, useGhost, useSessionPost } from './hooks/useApi.js';
 import { useSiteRoute } from './hooks/useSiteRoute.js';
 import { useTicker } from './hooks/useTicker.js';
 import { useGameStore } from './store/gameStore.js';
 import { init, track } from './utils/analytics.js';
 import { usePageMeta } from './utils/pageMeta.js';
+
+// Code splitting: each non-initial view is loaded on demand so the initial
+// bundle stays lean. The heaviest dependencies — recharts (AnalyticsView),
+// and the marketing pages — only download when their screen is first opened.
+const AnalyticsView = lazy(() => import('./components/AnalyticsView.jsx'));
+const ProfileView = lazy(() => import('./components/ProfileView.jsx'));
+const RaceView = lazy(() => import('./components/RaceView.jsx'));
+const AboutPage = lazy(() => import('./pages/AboutPage.jsx'));
+const ContactPage = lazy(() => import('./pages/ContactPage.jsx'));
+const FaqPage = lazy(() => import('./pages/FaqPage.jsx'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
+const WaitlistPage = lazy(() => import('./pages/WaitlistPage.jsx'));
 
 // Marketing pages manage their own <title>/meta via SitePage; these cover
 // the app views so every screen has a consistent, unique title.
@@ -76,25 +80,27 @@ export default function App() {
     <div className="flex min-h-screen flex-col">
       <TopBar />
       <div className="flex-1 pb-14">
-        {view === 'train' ? (
-          <TrainView />
-        ) : view === 'race' ? (
-          <RaceView />
-        ) : view === 'profile' ? (
-          <ProfileView />
-        ) : view === 'analytics' ? (
-          <AnalyticsView />
-        ) : view === 'about' ? (
-          <AboutPage />
-        ) : view === 'faq' ? (
-          <FaqPage />
-        ) : view === 'contact' ? (
-          <ContactPage />
-        ) : view === 'waitlist' ? (
-          <WaitlistPage />
-        ) : (
-          <NotFoundPage />
-        )}
+        <Suspense fallback={<div className="p-10 text-center text-[10px] tracking-[0.3em] text-faint">LOADING…</div>}>
+          {view === 'train' ? (
+            <TrainView />
+          ) : view === 'race' ? (
+            <RaceView />
+          ) : view === 'profile' ? (
+            <ProfileView />
+          ) : view === 'analytics' ? (
+            <AnalyticsView />
+          ) : view === 'about' ? (
+            <AboutPage />
+          ) : view === 'faq' ? (
+            <FaqPage />
+          ) : view === 'contact' ? (
+            <ContactPage />
+          ) : view === 'waitlist' ? (
+            <WaitlistPage />
+          ) : (
+            <NotFoundPage />
+          )}
+        </Suspense>
       </div>
       {isAppView ? <AppMeta view={view} /> : null}
       <ProfileNamePrompt />
