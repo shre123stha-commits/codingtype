@@ -13,6 +13,7 @@ import sessionsRouter from './src/routes/sessions.js';
 import dailyRouter from './src/routes/daily.js';
 import drillsRouter from './src/routes/drills.js';
 import waitlistRouter from './src/routes/waitlist.js';
+import leaderboardRouter from './src/routes/leaderboard.js';
 import { createRaceWs } from './src/ws/race.js';
 import { supaConfigured } from './src/store/supaStore.js';
 
@@ -136,6 +137,9 @@ app.get('/', (req, res) => {
       'GET /api/sessions/pbest/:snippetId': 'fastest run for a snippet (ghost race data)',
       'GET /api/daily': "today's challenge + streak + top runs",
       'GET /api/drills/adaptive': 'worst friction symbols for AI micro-drills',
+      'GET /api/leaderboard': 'all top-10 boards (category x board)',
+      'GET /api/leaderboard/meta': 'categories, boards, accuracy gate',
+      'GET /api/leaderboard/:category/:board': 'one top-10 board',
       'GET /api/waitlist': 'waitlist count',
       'POST /api/waitlist': 'join the waitlist ({ email }) — 5 attempts / 15 min',
       'WS /api/ws': '1v1 race lobbies (create/join-by-code/start/progress/finish/result)',
@@ -165,6 +169,7 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/daily', dailyRouter);
 app.use('/api/drills', drillsRouter);
 app.use('/api/waitlist', waitlistRouter);
+app.use('/api/leaderboard', leaderboardRouter);
 
 app.use(notFound);
 app.use(errorHandler);

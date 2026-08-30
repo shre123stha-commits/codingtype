@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import HudCard from './HudCard.jsx';
 import LineRow from './LineRow.jsx';
 import RestartButton from './RestartButton.jsx';
+import ChangeButton from './ChangeButton.jsx';
 import StatusBadge from './StatusBadge.jsx';
 import { ghostCharsAtF } from '../utils/ghostRace.js';
 import { rivalCursorChars } from '../utils/rivalCursor.js';
@@ -137,6 +138,7 @@ export default function TypingArena({ captureRef }) {
       right={
         <>
           <RestartButton />
+          <ChangeButton />
           <StatusBadge status={status} />
         </>
       }

@@ -93,6 +93,7 @@ function ThemeMenu() {
 const VIEWS = [
   ['train', 'TRAIN'],
   ['race', 'RACE'],
+  ['leaderboards', 'BOARDS'],
   ['analytics', 'ANALYTICS'],
   ['profile', 'PROFILE']
 ];

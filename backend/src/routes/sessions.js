@@ -2,6 +2,8 @@ import { Router } from 'express';
 
 import { fingerOf } from '../../../shared/fingers.js';
 import { storeFor } from '../store/supaStore.js';
+import { submit as submitLeaderboard } from '../store/leaderboardStore.js';
+import { emitScore } from '../leaderboard/bus.js';
 import { bool, isPlainBody, num, queryInt, queryStr, statsMap, str, timings } from '../middleware/sanitize.js';
 
 const router = Router();
@@ -59,9 +61,27 @@ router.post('/', ah(async (req, res) => {
     return res.status(400).json({ error: 'invalid_payload' });
   }
   const row = sessionShape(req.body);
+  // Who this run is credited to on the leaderboards. Never trusted as HTML —
+  // the client renders it as text — and hard-capped at 24 chars.
+  const operator = str(req.body?.operator, 24, '');
   const store = await storeFor(req);
   await store.insert(row);
-  res.status(201).json({ id: row.id, createdAt: row.createdAt, store: store.kind });
+
+  // Evaluate against the leaderboards. A run below MIN_ACCURACY (90%) never
+  // ranks, and a run that misses the top 10 is never written anywhere.
+  const guestHeader = str(req.headers?.['x-guest-id'], 64, 'anon');
+  const result = await submitLeaderboard(row, { name: operator || 'GUEST', guestId: guestHeader });
+  if (result.best) {
+    // Tell every connected client so the boards update without a refresh.
+    emitScore({ category: result.best.category, board: result.best.board });
+  }
+
+  res.status(201).json({
+    id: row.id,
+    createdAt: row.createdAt,
+    store: store.kind,
+    leaderboard: result
+  });
 }));
 
 // ── Cursor-based pagination (newest-first by createdAt) ────────────────────
