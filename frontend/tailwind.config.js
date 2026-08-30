@@ -32,14 +32,21 @@ export default {
       boxShadow: {
         'glow-amber': '0 0 16px rgb(var(--c-accent) / 0.14)',
         'glow-cyan': '0 0 16px rgb(var(--c-pulse) / 0.12)',
-        'glow-blood': '0 0 14px rgb(var(--c-blood) / 0.16)'
+        'glow-blood': '0 0 14px rgb(var(--c-blood) / 0.16)',
+        'glow-green': '0 0 18px rgb(var(--c-good) / 0.18)'
       },
       animation: {
         blink: 'blink 1.05s steps(2, start) infinite',
         'pulse-soft': 'pulseSoft 2.2s ease-in-out infinite',
-        'hint-glow': 'hintGlow 1.8s ease-in-out infinite'
+        'hint-glow': 'hintGlow 1.8s ease-in-out infinite',
+        // must match DURATION_MS in LeaderboardToast.jsx (5s)
+        countdown: 'countdown 5s linear forwards'
       },
       keyframes: {
+        countdown: {
+          from: { width: '100%' },
+          to: { width: '0%' }
+        },
         blink: {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0' }

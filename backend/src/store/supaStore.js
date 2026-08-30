@@ -4,6 +4,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { db } from './fileStore.js';
+import { guestStoreFor, isGuestId } from './guestStore.js';
 
 const URL = process.env.SUPABASE_URL;
 const KEY = process.env.SUPABASE_ANON_KEY;
@@ -176,22 +177,30 @@ function supaStore(entry) {
   };
 }
 
+// The store a guest request writes to: that device's own file. Falls back to
+// the shared legacy store only when no (valid) guest id is supplied — e.g. a
+// direct curl with no headers — so nothing that worked before breaks.
+function guestOrShared(req) {
+  const id = String(req.headers?.['x-guest-id'] || '').trim();
+  return isGuestId(id) ? guestStoreFor(id) : localStore;
+}
+
 // Returns the persistence store for this request (never throws on bad tokens —
 // degrades to local so the site keeps working).
 export async function storeFor(req) {
-  if (!supaConfigured) return localStore;
+  if (!supaConfigured) return guestOrShared(req);
   const header = req.headers?.authorization || '';
-  if (!header.startsWith('Bearer ')) return localStore;
+  if (!header.startsWith('Bearer ')) return guestOrShared(req);
   const token = header.slice(7).trim();
-  if (token.length < 30) return localStore;
+  if (token.length < 30) return guestOrShared(req);
   try {
     const entry = supaClientFor(token);
-    if (!entry) return localStore;
+    if (!entry) return guestOrShared(req);
     // validate the token against Supabase auth (cheap: once per token lifetime)
     const { data, error } = await entry.client.auth.getUser();
-    if (error || !data?.user || data.user.id !== entry.sub) return localStore;
+    if (error || !data?.user || data.user.id !== entry.sub) return guestOrShared(req);
     return supaStore(entry);
   } catch {
-    return localStore;
+    return guestOrShared(req);
   }
 }

@@ -110,3 +110,38 @@ drop policy if exists "users delete own profile" on public.profiles;
 create policy "users delete own profile"
   on public.profiles for delete
   using (auth.uid() = id);
+
+-- ============================================================
+-- v2.0 — public leaderboards (top 10, per category, per timeframe).
+-- Same statements as migrations/20260830_leaderboards.sql, kept here so the
+-- one-shot setup file stays complete. Re-running this whole file is safe.
+--
+-- World-readable, but ONLY the backend writes: anon gets SELECT only. The
+-- backend needs SUPABASE_SERVICE_ROLE_KEY in its OWN env (never VITE_*).
+-- ============================================================
+
+create table if not exists public.leaderboard_scores (
+  id            text primary key,
+  guest_id      text not null,
+  display_name  text not null,
+  category      text not null check (category in ('daily','algorithm','repo','sprint','interview')),
+  board         text not null check (board in ('alltime','today')),
+  day           text,
+  snippet_id    text not null default 'unknown',
+  wpm           numeric not null check (wpm >= 0 and wpm <= 600),
+  accuracy      numeric not null check (accuracy >= 90 and accuracy <= 100),
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists leaderboard_board_idx
+  on public.leaderboard_scores (category, board, wpm desc, accuracy desc);
+create index if not exists leaderboard_today_idx
+  on public.leaderboard_scores (category, day, wpm desc)
+  where board = 'today';
+
+alter table public.leaderboard_scores enable row level security;
+
+drop policy if exists "anyone can read leaderboards" on public.leaderboard_scores;
+create policy "anyone can read leaderboards"
+  on public.leaderboard_scores for select
+  using (true);

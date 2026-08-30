@@ -492,6 +492,21 @@ a:hover {
   letter-spacing: 0.2em;
   color: rgb(var(--c-faint) / 0.45);
 }
+/* Leaderboard congrats toast — the bar drains over the 5s auto-close so the
+   dismissal is never a surprise. */
+.toast-countdown {
+  width: 100%;
+  animation: countdown 5s linear forwards;
+}
+@keyframes countdown {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
 /* Right-hand ad rail on the marketing pages (mirrors the 300px left rail on
    the training arena). Sticks while the article scrolls on wide screens and
    centres itself once it drops below the copy on narrow ones. */
