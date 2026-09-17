@@ -76,7 +76,8 @@ The account dialog also supports **Google**, **Meta (Facebook)**, and **X (Twitt
 Supabase OAuth. Enable the providers you want under **Authentication → Providers**, configure
 their client credentials in the Supabase dashboard, and add the Supabase callback URL to each
 provider's developer console. CodeType sends the current app origin as the post-login redirect;
-Supabase provider IDs are `google`, `facebook`, and `twitter` respectively.
+Supabase provider IDs are `google`, `facebook`, and `x` respectively. The modern X OAuth 2.0
+provider is preferred over the legacy Twitter provider.
 
 ## Information architecture
 
