@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useGameStore } from '../store/gameStore.js';
 import { displayName } from '../utils/profileCloud.js';
+import { ProviderIcon } from './CodeTypeMark.jsx';
 
 function useClickOutside(ref, active, onOutside) {
   useEffect(() => {
@@ -17,7 +18,7 @@ function useClickOutside(ref, active, onOutside) {
 }
 
 function AuthModal({ initialTab = 'in', onClose }) {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithProvider } = useAuth();
   const setUiOpen = useGameStore((s) => s.setUiOpen);
   const setProfile = useGameStore((s) => s.setProfile);
   const savedName = useGameStore((s) => s.profileName);
@@ -27,6 +28,7 @@ function AuthModal({ initialTab = 'in', onClose }) {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [providerBusy, setProviderBusy] = useState('');
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
 
@@ -49,6 +51,18 @@ function AuthModal({ initialTab = 'in', onClose }) {
     setTab(t);
     setError('');
     setNote('');
+  };
+
+  const oauth = async (provider) => {
+    if (busy || providerBusy) return;
+    setError('');
+    setNote('');
+    setProviderBusy(provider);
+    const res = await signInWithProvider(provider);
+    if (res?.error) {
+      setError(res.error.toUpperCase());
+      setProviderBusy('');
+    }
   };
 
   const submit = async (e) => {
@@ -118,6 +132,25 @@ function AuthModal({ initialTab = 'in', onClose }) {
               CREATE ACCOUNT
             </button>
           </div>
+          <div className="mb-4 grid grid-cols-3 gap-1.5">
+            {[
+              ['google', 'GOOGLE'],
+              ['facebook', 'META'],
+              ['twitter', 'X']
+            ].map(([provider, label]) => (
+              <button
+                key={provider}
+                type="button"
+                onClick={() => oauth(provider)}
+                disabled={busy || Boolean(providerBusy)}
+                className="provider-button"
+              >
+                <ProviderIcon provider={provider} />
+                <span>{providerBusy === provider ? '…' : label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="auth-divider"><span>OR CONTINUE WITH EMAIL</span></div>
           <form onSubmit={submit} className="space-y-2.5">
             <div>
               <div className="hud-label mb-1.5">{tab === 'up' ? 'NAME' : 'NAME (OPTIONAL)'}</div>
@@ -176,7 +209,7 @@ function AuthModal({ initialTab = 'in', onClose }) {
             NO ACCOUNT NEEDED — GUEST DATA STAYS ON THIS DEVICE. SIGN IN TO KEEP YOUR SESSIONS, PBs, HEATMAP AND DAILY
             STREAK IN THE CLOUD AND RACE THE GLOBAL DAILY LEADERBOARD.
           </p>
-          <p className="mt-2 text-[9px] tracking-[0.08em] text-faint">EMAIL + PASSWORD ONLY — NO GOOGLE / GITHUB / FACEBOOK OPTIONS.</p>
+          <p className="mt-2 text-[9px] tracking-[0.08em] text-faint">SOCIAL SIGN-IN REQUIRES THE PROVIDER TO BE ENABLED IN YOUR SUPABASE AUTH SETTINGS.</p>
         </div>
       </div>
     </div>

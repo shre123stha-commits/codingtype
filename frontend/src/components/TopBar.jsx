@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import AuthMenu from './AuthMenu.jsx';
+import CodeTypeMark from './CodeTypeMark.jsx';
 import { useGameStore } from '../store/gameStore.js';
 import { THEME_META } from '../utils/themes.js';
 import { apiUrl } from '../utils/env.js';
@@ -296,8 +297,7 @@ export default function TopBar() {
           title="Back to home"
           className="shrink-0 cursor-pointer text-lg font-bold text-accent transition-opacity hover:opacity-75"
         >
-          <span className="mr-1 inline-block h-4 w-2.5 translate-y-[2px] animate-blink bg-accent align-baseline" />
-          CODETYPE
+          <CodeTypeMark compact />
         </button>
         <ViewTabs />
       </div>

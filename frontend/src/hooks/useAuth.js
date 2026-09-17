@@ -60,6 +60,16 @@ export function useAuth() {
     [setAuthUser]
   );
 
+  const signInWithProvider = useCallback(async (provider) => {
+    const supabase = await getSupabase();
+    if (!supabase) return { error: 'ACCOUNTS ARE NOT CONFIGURED' };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin }
+    });
+    return { error: error?.message || null };
+  }, []);
+
   const signUp = useCallback(
     async (email, password, name) => {
       const supabase = await getSupabase();
@@ -88,5 +98,5 @@ export function useAuth() {
     // device profile stays in the store/localStorage for guest use
   }, [setAuthUser]);
 
-  return { authAvailable, authUser, signIn, signUp, signOut };
+  return { authAvailable, authUser, signIn, signUp, signInWithProvider, signOut };
 }
