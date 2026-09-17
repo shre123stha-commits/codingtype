@@ -2,6 +2,7 @@ import { useGameStore } from '../store/gameStore.js';
 import { navigate } from '../hooks/useSiteRoute.js';
 import { consentState, setConsent } from '../utils/analytics.js';
 import { CONTACT_EMAIL, FE_VERSION, SITE_NAME } from '../utils/siteConfig.js';
+import CodeTypeMark from './CodeTypeMark.jsx';
 
 const SITE_LINKS = [
   ['/about', 'ABOUT'],
@@ -27,9 +28,8 @@ export default function SiteFooter() {
     <footer className="site-footer border-t border-edge bg-panel/60">
       <div className="mx-auto grid max-w-[1100px] grid-cols-2 gap-8 px-6 py-8 text-[10px] tracking-[0.14em] sm:grid-cols-4">
         <div className="col-span-2 sm:col-span-1">
-          <div className="mb-2 flex items-center gap-1.5 text-[12px] font-bold tracking-[0.18em] text-ink">
-            <span className="inline-block h-3.5 w-2 bg-accent" />
-            {SITE_NAME}
+          <div className="mb-3">
+            <CodeTypeMark />
           </div>
           <p className="max-w-[220px] leading-relaxed text-faint">
             TACTICAL TYPING TELEMETRY FOR SOFTWARE DEVELOPERS. TRAIN THE SYMBOLS OF REAL PRODUCTION CODE.

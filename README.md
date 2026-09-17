@@ -70,6 +70,14 @@ The anon key is a public credential; all real protection comes from the RLS poli
 `schema.sql`. If you'd rather skip the confirmation email on signup, toggle
 **Authentication → Providers → Email → Confirm email** off in the dashboard.
 
+### Social sign-in providers
+
+The account dialog also supports **Google**, **Meta (Facebook)**, and **X (Twitter)** through
+Supabase OAuth. Enable the providers you want under **Authentication → Providers**, configure
+their client credentials in the Supabase dashboard, and add the Supabase callback URL to each
+provider's developer console. CodeType sends the current app origin as the post-login redirect;
+Supabase provider IDs are `google`, `facebook`, and `twitter` respectively.
+
 ## Information architecture
 
 Everything lives under **three top-level tabs** in the top bar; no feature floats free.
