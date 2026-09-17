@@ -519,3 +519,141 @@ a:hover {
     justify-content: flex-end;
   }
 }
+
+
+/* ============================================================
+   v2.0 — NEON EDITORIAL WORKSPACE
+   Visual-only refresh: interaction classes, store contracts, and
+   component behavior remain unchanged.
+   ============================================================ */
+:root {
+  --surface-0: #07090f;
+  --surface-1: #0c101a;
+  --surface-2: #111827;
+  --line-soft: rgba(148, 163, 184, 0.14);
+  --lime: #d9f99d;
+  --cyan: #67e8f9;
+  --violet: #a78bfa;
+}
+
+body {
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--surface-0);
+  background-image:
+    radial-gradient(900px 520px at 12% -12%, rgb(var(--c-pulse) / 0.13), transparent 62%),
+    radial-gradient(720px 500px at 92% 8%, rgb(var(--c-accent) / 0.1), transparent 58%),
+    linear-gradient(180deg, rgba(7, 9, 15, 0.9), rgba(7, 9, 15, 1));
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.22;
+  background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+#root > div { position: relative; }
+
+.hud-card {
+  border: 1px solid var(--line-soft);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(17, 24, 39, 0.92), rgba(8, 12, 20, 0.92));
+  box-shadow: 0 24px 80px -42px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255,255,255,0.045);
+  backdrop-filter: blur(18px);
+}
+
+.hud-card > header {
+  min-height: 48px;
+  border-color: var(--line-soft);
+  padding-inline: 18px;
+}
+
+.hud-label { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 9px; letter-spacing: 0.18em; }
+
+.chip {
+  border-radius: 999px;
+  border-color: var(--line-soft);
+  padding: 8px 13px;
+  letter-spacing: 0.12em;
+  transition: transform 160ms cubic-bezier(.23,1,.32,1), background-color 160ms, border-color 160ms, color 160ms;
+}
+.chip:not(:disabled):hover { filter: none; transform: translateY(-1px); }
+.chip:not(:disabled):active { transform: scale(.97); }
+.chip-off { background: rgba(255,255,255,0.025); }
+.chip-on-amber { background: linear-gradient(135deg, rgb(var(--c-accent) / .2), rgb(var(--c-accent) / .06)); box-shadow: 0 0 24px rgb(var(--c-accent) / .1); }
+.chip-on-cyan { background: linear-gradient(135deg, rgb(var(--c-pulse) / .2), rgb(var(--c-pulse) / .06)); box-shadow: 0 0 24px rgb(var(--c-pulse) / .1); }
+
+header.sticky {
+  height: 72px;
+  padding-inline: clamp(18px, 4vw, 56px);
+  border-bottom: 1px solid rgba(148,163,184,.12);
+  background: rgba(7, 9, 15, .76);
+  box-shadow: 0 14px 40px -28px rgba(0,0,0,.9);
+}
+header.sticky > div:first-child { gap: 24px; }
+header.sticky button.text-lg { font-family: 'Space Grotesk', sans-serif; font-size: 17px; letter-spacing: -.04em; color: #f8fafc; }
+header.sticky button.text-lg .bg-accent { background: var(--lime); box-shadow: 0 0 16px rgba(217,249,157,.75); }
+header.sticky nav { gap: 5px; }
+header.sticky nav > button,
+header.sticky nav > div > button { border-color: transparent; background: transparent; color: rgb(var(--c-dim)); }
+header.sticky nav > button:hover,
+header.sticky nav > div > button:hover { background: rgba(255,255,255,.06); color: #fff; }
+header.sticky nav .chip-on-amber { color: var(--lime); background: rgba(217,249,157,.1); border-color: rgba(217,249,157,.22); }
+header.sticky nav .chip-on-cyan { color: var(--cyan); background: rgba(103,232,249,.1); border-color: rgba(103,232,249,.22); }
+
+main[class*="max-w-[1600px]"] {
+  max-width: 1500px;
+  padding: clamp(24px, 4vw, 56px) clamp(18px, 4vw, 56px) 72px;
+  gap: 24px;
+}
+main[class*="max-w-[1600px]"] > div.order-1 { position: relative; }
+main[class*="max-w-[1600px]"] > div.order-1::before {
+  content: 'CODETYPE / PRACTICE LAB';
+  display: block;
+  margin: 0 0 14px 4px;
+  color: rgb(var(--c-faint));
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .22em;
+}
+main[class*="max-w-[1600px]"] > div.order-1 > p { display: none; }
+
+.hud-card.px-5.py-4 { padding: 20px 22px; border-radius: 18px; }
+.hud-card.px-5.py-4 .text-3xl { font-family: 'Space Grotesk', sans-serif; letter-spacing: -.06em; }
+.hud-card.px-5.py-4 .border-t { border-color: var(--line-soft); }
+
+.hud-card:has(> [class*="max-h-[540px]"]) { overflow: hidden; }
+.hud-card:has(> [class*="max-h-[540px]"]) > header { background: rgba(255,255,255,.018); }
+.hud-card:has(> [class*="max-h-[540px]"]) [class*="max-h-[540px]"] {
+  min-height: 420px;
+  padding: 28px 30px;
+  background: radial-gradient(circle at 50% 0%, rgba(103,232,249,.05), transparent 54%), rgba(3, 6, 12, .65);
+}
+.hud-card:has(> [class*="max-h-[540px]"]) [class*="max-h-[540px]"]::-webkit-scrollbar-thumb { border-radius: 99px; }
+
+/* Supporting rails feel like tools, not competing dashboards. */
+main[class*="max-w-[1600px]"] > div.order-2 .hud-card,
+main[class*="max-w-[1600px]"] > div.order-3 .hud-card { border-radius: 16px; }
+main[class*="max-w-[1600px]"] > div.order-2 .hud-card > header,
+main[class*="max-w-[1600px]"] > div.order-3 .hud-card > header { min-height: 44px; }
+
+.site-footer { background: rgba(7,9,15,.7); border-color: var(--line-soft); }
+
+@media (max-width: 1100px) {
+  header.sticky { height: auto; min-height: 68px; flex-wrap: wrap; padding-block: 14px; }
+  header.sticky > div:first-child { flex-wrap: wrap; gap: 10px; }
+  header.sticky > div:last-child { margin-left: auto; }
+}
+@media (max-width: 700px) {
+  header.sticky nav { order: 3; width: 100%; overflow-x: auto; padding-top: 4px; }
+  header.sticky nav > button, header.sticky nav > div > button { flex: 0 0 auto; }
+  main[class*="max-w-[1600px]"] { padding: 20px 12px 52px; }
+  .hud-card:has(> [class*="max-h-[540px]"]) [class*="max-h-[540px]"] { min-height: 320px; padding: 22px 16px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
