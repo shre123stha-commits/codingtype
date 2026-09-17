@@ -678,6 +678,6 @@ button:hover .codetype-mark-frame { stroke: rgb(var(--c-accent2)); }
 .provider-icon { display: inline-grid; width: 16px; height: 16px; place-items: center; border-radius: 5px; background: rgb(var(--c-ink) / .1); color: rgb(var(--c-ink)); font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; line-height: 1; }
 .provider-icon-google { color: rgb(var(--c-accent2)); }
 .provider-icon-facebook { color: rgb(var(--c-pulse)); }
-.provider-icon-twitter { font-family: ui-sans-serif, system-ui, sans-serif; }
+.provider-icon-x { font-family: ui-sans-serif, system-ui, sans-serif; }
 .auth-divider { display: flex; align-items: center; gap: 9px; margin: 0 0 12px; color: rgb(var(--c-faint)); font-size: 8px; font-weight: 700; letter-spacing: .14em; }
 .auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: rgb(var(--c-edge) / .75); }

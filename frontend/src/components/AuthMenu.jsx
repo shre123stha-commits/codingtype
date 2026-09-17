@@ -136,7 +136,7 @@ function AuthModal({ initialTab = 'in', onClose }) {
             {[
               ['google', 'GOOGLE'],
               ['facebook', 'META'],
-              ['twitter', 'X']
+              ['x', 'X']
             ].map(([provider, label]) => (
               <button
                 key={provider}
