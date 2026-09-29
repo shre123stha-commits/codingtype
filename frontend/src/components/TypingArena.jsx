@@ -37,6 +37,13 @@ function encodeCloses(closes, line) {
   return parts.join('|');
 }
 
+// Auto-follow viewport: exactly VISIBLE_LINES lines are on screen at a time.
+// While you are on one of the first three lines the window sits at the top;
+// the moment you reach line 4 the window slides up so line 1 scrolls away —
+// the caret never leaves the visible area and no manual scrolling is needed.
+const LINE_H = 26; // matches LineRow's leading-[26px]
+const VISIBLE_LINES = 3;
+
 export default function TypingArena({ captureRef }) {
   const snippet = useGameStore((s) => s.snippet);
   const pointer = useGameStore((s) => s.pointer);
@@ -93,6 +100,14 @@ export default function TypingArena({ captureRef }) {
     }
     return lines.length - 1;
   }, [snippet, pointer]);
+
+  // First visible line. Clamped at both ends so the window never shows dead
+  // space: lines 1-3 stay put, from line 4 on the window follows the caret.
+  const windowStart = useMemo(() => {
+    if (!snippet) return 0;
+    return Math.max(0, Math.min(currentLine - (VISIBLE_LINES - 1), snippet.lines.length - VISIBLE_LINES));
+  }, [snippet, currentLine]);
+  const visibleCount = snippet ? Math.min(VISIBLE_LINES, snippet.lines.length) : VISIBLE_LINES;
 
   const ghostPosOut = status === 'running' && raceGhost ? ghostPos : null;
   const rivalPosOut = status === 'running' && hasRival ? Math.min(rivalPos, snippet.charCount) : null;
@@ -163,18 +178,22 @@ export default function TypingArena({ captureRef }) {
         </div>
       ) : null}
 
-      <div className="relative max-h-[540px] overflow-auto py-3 pl-2 pr-4 font-mono text-[13px]">
-        {lineViews.map((view) => (
-          <LineRow
-            key={view.lineIndex}
-            {...view}
-            pointer={pointer}
-            blind={blind}
-            ghostPos={ghostPosOut}
-            rivalPos={rivalPosOut}
-            showCaret={status !== 'finished' && view.lineIndex === currentLine}
-          />
-        ))}
+      <div className="arena-scroll relative overflow-x-auto font-mono text-[13px]">
+        <div className="arena-window" style={{ height: `${visibleCount * LINE_H}px` }}>
+          <div className="arena-track" style={{ transform: `translateY(${-windowStart * LINE_H}px)` }}>
+            {lineViews.map((view) => (
+              <LineRow
+                key={view.lineIndex}
+                {...view}
+                pointer={pointer}
+                blind={blind}
+                ghostPos={ghostPosOut}
+                rivalPos={rivalPosOut}
+                showCaret={status !== 'finished' && view.lineIndex === currentLine}
+              />
+            ))}
+          </div>
+        </div>
 
         {status === 'paused' ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-obsidian/80 backdrop-blur-[2px]">

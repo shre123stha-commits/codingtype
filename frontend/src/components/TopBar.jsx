@@ -2,17 +2,41 @@ import { useEffect, useRef, useState } from 'react';
 
 import AuthMenu from './AuthMenu.jsx';
 import CodeTypeMark from './CodeTypeMark.jsx';
+import { CheckIcon, ChevronIcon } from './Icons.jsx';
 import { useGameStore } from '../store/gameStore.js';
 import { THEME_META } from '../utils/themes.js';
 import { apiUrl } from '../utils/env.js';
 import { FE_VERSION } from '../utils/siteConfig.js';
 
-function Swatch({ swatch, className = '' }) {
+// Mini editor mock, painted with the theme's own tokens so the card previews
+// the real app under any active theme.
+function ThemePreview({ p, on }) {
   return (
-    <span
-      className={`inline-block shrink-0 border border-edge2 ${className}`}
-      style={{ background: `linear-gradient(90deg, ${swatch[0]} 55%, ${swatch[1]} 55%)` }}
-    />
+    <span className="theme-card-preview" style={{ background: p.bg, borderColor: on ? p.accent : p.line }}>
+      <span className="theme-card-dots">
+        <i style={{ background: p.line }} />
+        <i style={{ background: p.line }} />
+        <i style={{ background: p.accent }} />
+      </span>
+      <span className="tp-line">
+        <i className="tp-seg" style={{ width: '46%', background: p.accent }} />
+        <i className="tp-seg" style={{ width: '30%', background: p.line }} />
+      </span>
+      <span className="tp-line" style={{ paddingLeft: '14%' }}>
+        <i className="tp-seg" style={{ width: '38%', background: p.alt }} />
+        <i className="tp-seg" style={{ width: '24%', background: p.line }} />
+      </span>
+      <span className="tp-line" style={{ paddingLeft: '5%' }}>
+        <i className="tp-seg" style={{ width: '24%', background: p.ink }} />
+        <i className="tp-seg" style={{ width: '20%', background: p.accent }} />
+        <i className="tp-seg" style={{ width: '17%', background: p.line }} />
+      </span>
+      {on ? (
+        <span className="theme-card-check" style={{ background: p.accent, color: p.bg }}>
+          <CheckIcon className="h-2.5 w-2.5" />
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -51,40 +75,49 @@ function ThemeMenu() {
         onClick={() => setOpen((v) => !v)}
         className={`chip flex items-center ${open ? 'chip-on-amber' : 'chip-off'}`}
       >
-        <Swatch swatch={active.swatch} className="mr-1.5 h-3 w-5 translate-y-[1px]" />
+        <span className="theme-trigger-dots mr-1.5" aria-hidden>
+          <i style={{ background: active.swatch[0] }} />
+          <i style={{ background: active.swatch[1] }} />
+        </span>
         THEMES
-        <span className="ml-1.5 text-[8px]">{open ? '▲' : '▼'}</span>
+        <ChevronIcon className="ml-1.5 h-3 w-3 opacity-70" up={open} />
       </button>
 
       {open ? (
-        <div
-          role="menu"
-          aria-label="select theme"
-          className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 border border-edge bg-panel shadow-lg shadow-black/30"
-        >
-          <div className="hud-label border-b border-edge px-3 py-2">SELECT THEME</div>
-          {THEME_META.map((t) => {
-            const on = theme === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={on}
-                onClick={() => {
-                  setTheme(t.id);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-[11px] transition-colors ${
-                  on ? 'bg-accent/10 text-accent' : 'text-ink hover:bg-panel2 hover:text-accent2'
-                }`}
-              >
-                <Swatch swatch={t.swatch} className="h-3.5 w-6" />
-                <span className="flex-1 font-semibold tracking-[0.14em]">{t.label.toUpperCase()}</span>
-                {on ? <span className="text-[10px] text-accent">●</span> : null}
-              </button>
-            );
-          })}
+        <div role="menu" aria-label="select theme" className="theme-pop w-[316px] max-w-[92vw]">
+          <div className="flex items-baseline justify-between px-2.5 pb-2.5 pt-1">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-ink">SELECT THEME</span>
+            <span className="text-[9px] tracking-[0.12em] text-faint">
+              {active.label.toUpperCase()} ACTIVE
+            </span>
+          </div>
+          <div className="theme-grid">
+            {THEME_META.map((t) => {
+              const on = theme === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={on}
+                  onClick={() => {
+                    setTheme(t.id);
+                    setOpen(false);
+                  }}
+                  className={`theme-card ${on ? 'theme-card-on' : ''}`}
+                >
+                  <ThemePreview p={t.preview} on={on} />
+                  <span className="theme-card-label">
+                    <span>{t.label.toUpperCase()}</span>
+                    <span className="theme-card-mode">{t.mode}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="px-2.5 pt-2.5 text-[8px] tracking-[0.12em] text-faint">
+            SAVED AUTOMATICALLY ON THIS DEVICE
+          </p>
         </div>
       ) : null}
     </div>
