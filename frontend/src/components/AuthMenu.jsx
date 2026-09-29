@@ -4,7 +4,16 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useGameStore } from '../store/gameStore.js';
 import { displayName } from '../utils/profileCloud.js';
-import { ProviderIcon } from './CodeTypeMark.jsx';
+import CodeTypeMark, { ProviderIcon } from './CodeTypeMark.jsx';
+import {
+  ArrowRightIcon,
+  ChevronIcon,
+  EyeIcon,
+  EyeOffIcon,
+  LogOutIcon,
+  UserIcon,
+  XIcon
+} from './Icons.jsx';
 
 function useClickOutside(ref, active, onOutside) {
   useEffect(() => {
@@ -15,6 +24,11 @@ function useClickOutside(ref, active, onOutside) {
     document.addEventListener('click', onClick);
     return () => document.removeEventListener('click', onClick);
   }, [ref, active, onOutside]);
+}
+
+function AvatarInitials({ name, className = '' }) {
+  const initials = (name.trim().slice(0, 2) || 'CT').toUpperCase();
+  return <span className={`auth-avatar-initials ${className}`}>{initials}</span>;
 }
 
 function AuthModal({ initialTab = 'in', onClose }) {
@@ -102,40 +116,54 @@ function AuthModal({ initialTab = 'in', onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+    <div className="auth-overlay" onClick={onClose}>
       <div
-        className="w-full max-w-sm border border-edge bg-panel shadow-lg shadow-black/50"
+        className="auth-card"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="account"
       >
-        <header className="flex items-center justify-between border-b border-edge px-4 py-3">
-          <span className="hud-label">OPERATOR ACCOUNT</span>
-          <button type="button" onClick={onClose} className="text-[10px] tracking-[0.2em] text-dim hover:text-ink" aria-label="close">
-            ✕
-          </button>
-        </header>
-        <div className="p-4">
-          <div className="mb-3 grid grid-cols-2 gap-1.5">
-            <button
-              type="button"
-              onClick={() => switchTab('in')}
-              className={`chip !py-1.5 !text-[9px] ${tab === 'in' ? 'chip-on-cyan' : 'chip-off'}`}
-            >
-              SIGN IN
-            </button>
-            <button
-              type="button"
-              onClick={() => switchTab('up')}
-              className={`chip !py-1.5 !text-[9px] ${tab === 'up' ? 'chip-on-cyan' : 'chip-off'}`}
-            >
-              CREATE ACCOUNT
+        <div className="auth-card-hero">
+          <div className="mb-3 flex items-center justify-between">
+            <CodeTypeMark compact className="auth-card-brand" />
+            <button type="button" onClick={onClose} className="auth-close" aria-label="close">
+              <XIcon className="h-3.5 w-3.5" />
             </button>
           </div>
-          <div className="mb-4 grid grid-cols-3 gap-1.5">
+          <h2 className="auth-card-title">{tab === 'in' ? 'Welcome back' : 'Create your account'}</h2>
+          <p className="auth-card-sub">
+            {tab === 'in'
+              ? 'Sign in to sync sessions, PBs, heatmap and your daily streak.'
+              : 'One account for cloud sync, streaks and the global daily leaderboard.'}
+          </p>
+        </div>
+
+        <div className="px-5 pb-5 pt-4">
+          <div className="auth-tabs" role="tablist" aria-label="sign in or create account">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'in'}
+              onClick={() => switchTab('in')}
+              className={`auth-tab ${tab === 'in' ? 'auth-tab-active' : ''}`}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'up'}
+              onClick={() => switchTab('up')}
+              className={`auth-tab ${tab === 'up' ? 'auth-tab-active' : ''}`}
+            >
+              Create account
+            </button>
+          </div>
+
+          <div className="mb-4 grid grid-cols-3 gap-2">
             {[
-              ['google', 'GOOGLE'],
-              ['facebook', 'META'],
+              ['google', 'Google'],
+              ['facebook', 'Meta'],
               ['x', 'X']
             ].map(([provider, label]) => (
               <button
@@ -150,66 +178,79 @@ function AuthModal({ initialTab = 'in', onClose }) {
               </button>
             ))}
           </div>
-          <div className="auth-divider"><span>OR CONTINUE WITH EMAIL</span></div>
-          <form onSubmit={submit} className="space-y-2.5">
+
+          <div className="auth-divider">
+            <span>OR CONTINUE WITH EMAIL</span>
+          </div>
+
+          <form onSubmit={submit} className="space-y-3">
             <div>
-              <div className="hud-label mb-1.5">{tab === 'up' ? 'NAME' : 'NAME (OPTIONAL)'}</div>
+              <label className="auth-label" htmlFor="auth-name">
+                {tab === 'up' ? 'Name' : 'Name · optional'}
+              </label>
               <input
+                id="auth-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={tab === 'up' ? 'your name' : 'leave blank to keep your current name'}
+                placeholder={tab === 'up' ? 'Your name' : 'Keep your current name'}
                 autoComplete="name"
                 maxLength={40}
-                className="w-full border border-edge bg-panel2 px-3 py-2 text-[11px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+                className="auth-input"
               />
             </div>
             <div>
-              <div className="hud-label mb-1.5">EMAIL</div>
+              <label className="auth-label" htmlFor="auth-email">
+                Email
+              </label>
               <input
+                id="auth-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full border border-edge bg-panel2 px-3 py-2 text-[11px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+                className="auth-input"
               />
             </div>
             <div>
-              <div className="hud-label mb-1.5">PASSWORD</div>
+              <label className="auth-label" htmlFor="auth-password">
+                Password
+              </label>
               <div className="relative">
                 <input
+                  id="auth-password"
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="min 6 characters"
+                  placeholder="Min 6 characters"
                   autoComplete={tab === 'in' ? 'current-password' : 'new-password'}
-                  className="w-full border border-edge bg-panel2 px-3 py-2 pr-9 text-[11px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+                  className="auth-input pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
                   aria-label={showPw ? 'hide password' : 'show password'}
                   title={showPw ? 'Hide password' : 'Show password'}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] leading-none text-faint transition-colors hover:text-accent"
+                  className="auth-eye"
                 >
-                  {showPw ? '◉' : '◎'}
+                  {showPw ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                 </button>
               </div>
             </div>
-            {error ? (
-              <p className="border border-blood/50 bg-blood/10 px-3 py-2 text-center text-[10px] font-bold tracking-[0.14em] text-blood">{error}</p>
-            ) : null}
-            {note ? <p className="px-1 text-[9px] leading-relaxed tracking-[0.1em] text-accent">{note}</p> : null}
-            <button type="submit" disabled={busy} className="chip chip-on-amber w-full py-2 text-[10px] disabled:opacity-40">
-              {busy ? '…' : tab === 'in' ? '⊕ SIGN IN' : '⊕ CREATE ACCOUNT'}
+            {error ? <p className="auth-error">{error}</p> : null}
+            {note ? <p className="auth-note">{note}</p> : null}
+            <button type="submit" disabled={busy} className="auth-submit">
+              <span>{busy ? 'WORKING…' : tab === 'in' ? 'SIGN IN' : 'CREATE ACCOUNT'}</span>
+              {busy ? null : <ArrowRightIcon className="h-3.5 w-3.5" />}
             </button>
           </form>
-          <p className="mt-3 border-t border-edge pt-3 text-[9px] leading-relaxed tracking-[0.06em] text-faint">
-            NO ACCOUNT NEEDED — GUEST DATA STAYS ON THIS DEVICE. SIGN IN TO KEEP YOUR SESSIONS, PBs, HEATMAP AND DAILY
-            STREAK IN THE CLOUD AND RACE THE GLOBAL DAILY LEADERBOARD.
+
+          <p className="mt-4 border-t border-edge/70 pt-3.5 text-[9px] leading-relaxed tracking-[0.06em] text-faint">
+            NO ACCOUNT NEEDED — GUEST DATA STAYS ON THIS DEVICE. SIGN IN TO KEEP YOUR SESSIONS, PBs, HEATMAP AND
+            DAILY STREAK IN THE CLOUD AND RACE THE GLOBAL DAILY LEADERBOARD. SOCIAL SIGN-IN REQUIRES THE PROVIDER
+            TO BE ENABLED IN SUPABASE AUTH SETTINGS.
           </p>
-          <p className="mt-2 text-[9px] tracking-[0.08em] text-faint">SOCIAL SIGN-IN REQUIRES THE PROVIDER TO BE ENABLED IN YOUR SUPABASE AUTH SETTINGS.</p>
         </div>
       </div>
     </div>
@@ -237,7 +278,7 @@ export default function AuthMenu() {
 
   if (!authAvailable) return null; // Supabase not configured → no account UI at all
 
-  // ---- signed OUT: chip opens a dropdown with SIGN IN / CREATE ACCOUNT ----
+  // ---- signed OUT: gradient pill opens a dropdown with SIGN IN / CREATE ACCOUNT ----
   if (!authUser) {
     return (
       <div className="relative" ref={ref}>
@@ -246,17 +287,14 @@ export default function AuthMenu() {
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="chip chip-off !px-2.5 !py-1 !text-[10px]"
+          className="signin-trigger"
         >
-          ⊕ SIGN IN
-          <span className="ml-1.5 text-[8px]">{open ? '▲' : '▼'}</span>
+          <UserIcon className="h-3.5 w-3.5" />
+          <span>SIGN IN</span>
+          <ChevronIcon className="h-3 w-3 opacity-70" up={open} />
         </button>
         {open ? (
-          <div
-            role="menu"
-            aria-label="account"
-            className="absolute right-0 top-[calc(100%+6px)] z-30 w-52 border border-edge bg-panel p-1.5 shadow-lg shadow-black/40"
-          >
+          <div role="menu" aria-label="account" className="auth-menu w-56">
             <button
               type="button"
               role="menuitem"
@@ -264,9 +302,13 @@ export default function AuthMenu() {
                 setOpen(false);
                 setModal('in');
               }}
-              className="flex w-full items-center px-2.5 py-2 text-left text-[10px] font-semibold tracking-[0.14em] text-ink hover:bg-accent/10 hover:text-accent"
+              className="auth-menu-item"
             >
-              → SIGN IN
+              <ArrowRightIcon className="h-3.5 w-3.5 text-accent" />
+              <span>
+                <span className="auth-menu-item-title">Sign in</span>
+                <span className="auth-menu-item-sub">sync your stats across devices</span>
+              </span>
             </button>
             <button
               type="button"
@@ -275,11 +317,15 @@ export default function AuthMenu() {
                 setOpen(false);
                 setModal('up');
               }}
-              className="flex w-full items-center px-2.5 py-2 text-left text-[10px] font-semibold tracking-[0.14em] text-ink hover:bg-accent/10 hover:text-accent"
+              className="auth-menu-item"
             >
-              → CREATE ACCOUNT
+              <UserIcon className="h-3.5 w-3.5 text-pulse" />
+              <span>
+                <span className="auth-menu-item-title">Create account</span>
+                <span className="auth-menu-item-sub">join the global daily leaderboard</span>
+              </span>
             </button>
-            <p className="border-t border-edge px-2.5 pb-1 pt-1.5 text-[8px] leading-relaxed tracking-[0.06em] text-faint">
+            <p className="border-t border-edge/70 px-3 pb-1.5 pt-2.5 text-[8px] leading-relaxed tracking-[0.06em] text-faint">
               GUEST MODE WORKS WITHOUT AN ACCOUNT — YOUR DATA STAYS ON THIS DEVICE.
             </p>
           </div>
@@ -301,34 +347,31 @@ export default function AuthMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="chip chip-on-cyan flex max-w-[190px] items-center !px-2.5 !py-1 !text-[10px]"
+        className="signin-trigger signin-trigger-on flex max-w-[190px]"
         title={authUser}
       >
         {profileAvatar ? (
-          <img src={profileAvatar} alt="" decoding="async" className="mr-1.5 h-4 w-4 shrink-0 rounded-full border border-edge object-cover" />
+          <img src={profileAvatar} alt="" decoding="async" className="h-[18px] w-[18px] shrink-0 rounded-full border border-edge object-cover" />
         ) : (
-          <span className="mr-1.5">◉</span>
+          <AvatarInitials name={name} className="h-[18px] w-[18px] text-[8px]" />
         )}
         <span className="truncate">{name}</span>
-        <span className="ml-1.5 text-[8px]">{open ? '▲' : '▼'}</span>
+        <ChevronIcon className="h-3 w-3 opacity-70" up={open} />
       </button>
       {open ? (
-        <div
-          role="menu"
-          aria-label="account menu"
-          className="absolute right-0 top-[calc(100%+6px)] z-30 w-64 border border-edge bg-panel p-3 shadow-lg shadow-black/40"
-        >
-          <div className="flex items-center gap-2.5">
+        <div role="menu" aria-label="account menu" className="auth-menu w-64">
+          <div className="flex items-center gap-2.5 px-1 py-1">
             {profileAvatar ? (
-              <img src={profileAvatar} alt="" decoding="async" className="h-10 w-10 shrink-0 rounded-full border border-accent object-cover" />
+              <img src={profileAvatar} alt="" decoding="async" className="h-10 w-10 shrink-0 rounded-full border border-accent/60 object-cover" />
             ) : (
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent bg-panel2 text-[13px] font-bold text-accent">
-                {(name.slice(0, 2) || 'CT').toUpperCase()}
-              </div>
+              <AvatarInitials name={name} className="h-10 w-10 text-[13px]" />
             )}
             <div className="min-w-0">
-              <div className="hud-label mb-0.5">SIGNED IN</div>
-              <div className="truncate text-[11px] font-bold tracking-[0.08em] text-ink">{name}</div>
+              <div className="mb-0.5 inline-flex items-center gap-1.5 text-[8px] font-bold tracking-[0.2em] text-good">
+                <span className="h-1 w-1 rounded-full bg-good" />
+                SIGNED IN
+              </div>
+              <div className="truncate text-[12px] font-bold tracking-[0.04em] text-ink">{name}</div>
               <div className="truncate text-[9px] tracking-[0.04em] text-faint">{authUser}</div>
             </div>
           </div>
@@ -343,9 +386,10 @@ export default function AuthMenu() {
                 setOpen(false);
                 setView('profile');
               }}
-              className="chip chip-on-cyan w-full !py-1.5 !text-[9px]"
+              className="auth-menu-cta auth-menu-cta-primary"
             >
-              ▤ PROFILE
+              <UserIcon className="h-3.5 w-3.5" />
+              VIEW PROFILE
             </button>
             <button
               type="button"
@@ -354,8 +398,9 @@ export default function AuthMenu() {
                 setOpen(false);
                 signOut();
               }}
-              className="chip chip-off w-full !py-1.5 !text-[9px]"
+              className="auth-menu-cta auth-menu-cta-danger"
             >
+              <LogOutIcon className="h-3.5 w-3.5" />
               SIGN OUT
             </button>
           </div>

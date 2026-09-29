@@ -1,12 +1,51 @@
 export const THEME_IDS = ['midnight', 'phantom', 'obsidian', 'paper', 'mist', 'bone'];
 
+// `preview` mirrors the theme's real tokens (see index.css) so the picker can
+// render a faithful mini-editor card that looks identical under ANY active
+// theme. line = muted bar, alt = second syntax tone, ink = base text.
 export const THEME_META = [
-  { id: 'midnight', label: 'Midnight', swatch: ['#0a0d13', '#7aa2f7'] },
-  { id: 'phantom', label: 'Phantom', swatch: ['#050b0d', '#34d399'] },
-  { id: 'obsidian', label: 'Obsidian', swatch: ['#0c0c0e', '#facc15'] },
-  { id: 'paper', label: 'Paper', swatch: ['#e8edf3', '#2f5fa8'] },
-  { id: 'mist', label: 'Mist', swatch: ['#e4e6df', '#3a4f37'] },
-  { id: 'bone', label: 'Bone', swatch: ['#efe7dc', '#9e482c'] }
+  {
+    id: 'midnight',
+    label: 'Midnight',
+    mode: 'dark',
+    swatch: ['#0a0d13', '#7aa2f7'],
+    preview: { bg: '#0a0d13', line: '#232c3d', accent: '#7aa2f7', alt: '#9ece6a', ink: '#a9b1d6' }
+  },
+  {
+    id: 'phantom',
+    label: 'Phantom',
+    mode: 'dark',
+    swatch: ['#050b0d', '#34d399'],
+    preview: { bg: '#050b0d', line: '#213841', accent: '#34d399', alt: '#c4b5fd', ink: '#93b5ad' }
+  },
+  {
+    id: 'obsidian',
+    label: 'Obsidian',
+    mode: 'dark',
+    swatch: ['#0c0c0e', '#facc15'],
+    preview: { bg: '#0c0c0e', line: '#28282e', accent: '#facc15', alt: '#e2e8f0', ink: '#b4b8c2' }
+  },
+  {
+    id: 'paper',
+    label: 'Paper',
+    mode: 'light',
+    swatch: ['#e8edf3', '#2f5fa8'],
+    preview: { bg: '#e8edf3', line: '#c9d4e0', accent: '#2f5fa8', alt: '#b3541e', ink: '#3d4c5e' }
+  },
+  {
+    id: 'mist',
+    label: 'Mist',
+    mode: 'light',
+    swatch: ['#e4e6df', '#3a4f37'],
+    preview: { bg: '#e4e6df', line: '#cdd3c6', accent: '#3a4f37', alt: '#8a6d3b', ink: '#4a5046' }
+  },
+  {
+    id: 'bone',
+    label: 'Bone',
+    mode: 'light',
+    swatch: ['#efe7dc', '#9e482c'],
+    preview: { bg: '#efe7dc', line: '#d9cdbb', accent: '#9e482c', alt: '#6b5b2e', ink: '#4e453b' }
+  }
 ];
 
 export const CHART_THEMES = {
