@@ -45,15 +45,12 @@ function BoardTable({ entries, loading }) {
         {entries.map((e, i) => (
           <tr
             key={e.id || `${e.name}-${i}`}
-            className={`border-b border-edge/40 ${e.sample ? 'opacity-60' : ''} ${i === 0 ? 'bg-good/[0.05]' : ''}`}
+            className={`border-b border-edge/40 ${i === 0 ? 'bg-good/[0.05]' : ''}`}
           >
             <td className="px-2 py-1.5">
               <Medal rank={i + 1} />
             </td>
-            <td className="truncate px-2 py-1.5 font-semibold tracking-[0.08em] text-ink">
-              {e.name}
-              {e.sample ? <span className="ml-1.5 text-[8px] tracking-[0.18em] text-faint">SAMPLE</span> : null}
-            </td>
+            <td className="truncate px-2 py-1.5 font-semibold tracking-[0.08em] text-ink">{e.name}</td>
             <td className="px-2 py-1.5 text-right font-bold tabular-nums text-accent">{e.wpm}</td>
             <td className="px-2 py-1.5 text-right tabular-nums text-dim">{e.accuracy}%</td>
           </tr>
