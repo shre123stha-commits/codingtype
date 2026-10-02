@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import AdaptivePanel from './AdaptivePanel.jsx';
 import HudCard from './HudCard.jsx';
 import ImportPanel from './ImportPanel.jsx';
-import { useDaily } from '../hooks/useApi.js';
+import { localSnippetById, useDaily } from '../hooks/useApi.js';
 import { MODES } from '../data/snippets.js';
 import { useGameStore } from '../store/gameStore.js';
 import { apiUrl } from '../utils/env.js';
@@ -168,42 +168,48 @@ export default function ModeDeck() {
     loadSnippet(s);
   };
 
-  const dailySnippetObj = daily ? catalog.find((s) => s.id === daily.snippetId) || null : null;
-  const dailyLoaded = snippet && snippet.id === dailySnippetObj?.id;
-  const [dailyFull, setDailyFull] = useState(null);
+  // The daily target is derived locally from the date + bundled catalog, so
+  // this is populated on first paint — no "SYNCING…" placeholder, no by-id
+  // round trip. The bundled entry carries the code, which the API catalog
+  // summaries do not, so the preview and RUN DAILY work with zero network.
+  const dailyFull = useMemo(() => localSnippetById(daily.snippetId), [daily.snippetId]);
+  const dailyLoaded = snippet && snippet.id === daily.snippetId;
 
+  // Fallback only: a server catalog that ships a daily target this build does
+  // not bundle (new snippet deployed, stale tab). Then — and only then — do we
+  // spend a request on the code.
+  const [dailyRemote, setDailyRemote] = useState(null);
   useEffect(() => {
-    if (!daily || !dailySnippetObj) {
-      setDailyFull(null);
-      return undefined;
-    }
-    if (dailySnippetObj.code) {
-      setDailyFull(dailySnippetObj);
+    if (dailyFull) {
+      setDailyRemote(null);
       return undefined;
     }
     let live = true;
     fetch(apiUrl(`/api/snippets/${encodeURIComponent(daily.snippetId)}`))
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (live && j) setDailyFull(j);
+        if (live && j) setDailyRemote(j);
       })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [daily, dailySnippetObj]);
+  }, [daily.snippetId, dailyFull]);
+
+  const dailyTarget = dailyFull || dailyRemote;
 
   const dailyPreview = useMemo(() => {
-    if (!dailyFull || !dailyFull.code) return '';
-    return dailyFull.code
+    const code = dailyTarget?.code;
+    if (!code) return '';
+    return code
       .split('\n')
       .slice(0, 5)
       .map((l) => l.slice(0, 46))
       .join('\n');
-  }, [dailyFull]);
+  }, [dailyTarget]);
   const runDaily = () => {
-    if (!dailySnippetObj) return;
-    loadSnippet({ ...dailyFull, ...dailySnippetObj, isDaily: true });
+    if (!dailyTarget) return;
+    loadSnippet({ ...dailyTarget, isDaily: true });
   };
 
   if (catalogSource === 'loading') {
@@ -245,18 +251,18 @@ export default function ModeDeck() {
           {tab === 'daily' ? (
             <>
               <SectionTitle num="01" title={activeTab.title} />
-              {daily && dailySnippetObj ? (
+              {dailyTarget ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[11px] font-semibold text-ink" title={dailySnippetObj.title}>
-                      {dailySnippetObj.title}
+                    <span className="truncate text-[11px] font-semibold text-ink" title={dailyTarget.title}>
+                      {dailyTarget.title}
                     </span>
                     <span className="shrink-0 border border-edge px-1.5 py-0.5 text-[9px] tracking-[0.14em] text-dim">
                       {daily.date}
                     </span>
                   </div>
-                  <div className="truncate text-[9px] tracking-wide text-dim" title={dailySnippetObj.source}>
-                    {dailySnippetObj.source}
+                  <div className="truncate text-[9px] tracking-wide text-dim" title={dailyTarget.source}>
+                    {dailyTarget.source}
                   </div>
                   {dailyPreview ? (
                     <pre className="overflow-hidden border border-edge bg-black/10 p-2 text-[9px] leading-relaxed text-dim">
@@ -277,11 +283,19 @@ export default function ModeDeck() {
                     </button>
                     <span
                       className={`shrink-0 border px-2 py-1 text-[9px] font-bold tracking-[0.14em] ${
-                        daily.streak > 0 ? 'border-accent/50 bg-accent/10 text-accent' : 'border-edge text-faint'
+                        daily.local
+                          ? 'animate-pulse-soft border-edge text-faint'
+                          : daily.streak > 0
+                            ? 'border-accent/50 bg-accent/10 text-accent'
+                            : 'border-edge text-faint'
                       }`}
-                      title="consecutive days completed"
+                      title={
+                        daily.local
+                          ? 'reading your streak…'
+                          : `${daily.streak} consecutive day${daily.streak === 1 ? '' : 's'} completed`
+                      }
                     >
-                      🔥 {daily.streak}
+                      🔥 {daily.local ? '·' : daily.streak}
                     </span>
                   </div>
                   <p className="text-[9px] leading-relaxed tracking-[0.06em] text-faint">

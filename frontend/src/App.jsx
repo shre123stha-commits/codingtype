@@ -78,6 +78,18 @@ export default function App() {
   useEffect(() => {
     init(); // analytics: only loads if configured AND cookies accepted
   }, []);
+
+  // Every non-initial view is code-split, so opening BOARDS for the first time
+  // used to pay for its chunk before it could show the (already warmed) board.
+  // Pull it down while the browser is idle instead.
+  useEffect(() => {
+    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 1500));
+    const cancel = window.cancelIdleCallback || clearTimeout;
+    const id = idle(() => {
+      import('./components/LeaderboardsView.jsx').catch(() => {});
+    });
+    return () => cancel(id);
+  }, []);
   useEffect(() => {
     track('page_view', { page: view });
   }, [view]);

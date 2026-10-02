@@ -17,9 +17,27 @@ function Medal({ rank }) {
   return <span className="tabular-nums text-faint">{String(rank).padStart(2, '0')}</span>;
 }
 
+// First-ever open has no snapshot to paint, so show the shape of the board
+// instead of a bare caption. Every later open paints real rows instantly from
+// the persisted snapshot and refreshes over them.
+function BoardSkeleton() {
+  return (
+    <div className="space-y-2 py-3" aria-hidden>
+      {Array.from({ length: TOP_N }).map((_, i) => (
+        <div key={i} className="flex animate-pulse-soft items-center gap-2 px-2">
+          <span className="h-3 w-4 rounded-sm bg-edge/70" />
+          <span className="h-3 rounded-sm bg-edge/40" style={{ width: `${68 - i * 4.5}%` }} />
+          <span className="ml-auto h-3 w-8 rounded-sm bg-edge/30" />
+          <span className="h-3 w-8 rounded-sm bg-edge/30" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BoardTable({ entries, loading }) {
   if (loading && !entries) {
-    return <div className="py-10 text-center text-[10px] tracking-[0.3em] text-faint">LOADING BOARD…</div>;
+    return <BoardSkeleton />;
   }
   if (!entries || !entries.length) {
     return (
