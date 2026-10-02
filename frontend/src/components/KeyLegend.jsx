@@ -1,10 +1,11 @@
 export default function KeyLegend() {
   const keys = [
     ['TAB', 'CLAIM INDENT'],
-    ['ENTER', 'NEWLINE + ALIGN'],
+    ['ENTER', 'NEWLINE / RERUN'],
     ['ESC', 'PAUSE / RESUME'],
     ['⌫', 'REVISE LAST'],
-    ['ENTER', 'RE-RUN ON COMPLETE']
+    ['F1 / ?', 'SHORTCUTS'],
+    ['ALT + N', 'NEW TARGET (IDLE)']
   ];
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-20 border-t border-edge bg-panel/90 px-5 py-2 backdrop-blur">

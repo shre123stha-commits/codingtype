@@ -22,7 +22,9 @@ export default function SiteFooter() {
   const setView = useGameStore((s) => s.setView);
   const consent = consentState();
 
-  const openHelp = () => document.dispatchEvent(new CustomEvent('ct-help', { detail: { open: true } }));
+  // KeyboardHelp listens on window. Dispatch there so the footer button and
+  // the F1 / ? key path open the exact same dialog.
+  const openHelp = () => window.dispatchEvent(new CustomEvent('ct-help', { detail: { open: true } }));
 
   return (
     <footer className="site-footer border-t border-edge bg-panel/60">
@@ -68,11 +70,6 @@ export default function SiteFooter() {
           <div className="mb-1.5">
             <a className="site-link" href={`mailto:${CONTACT_EMAIL}`}>
               EMAIL US
-            </a>
-          </div>
-          <div className="mb-1.5">
-            <a className="site-link" href="/llms.txt" target="_blank" rel="noopener">
-              LLMs.TXT
             </a>
           </div>
         </nav>

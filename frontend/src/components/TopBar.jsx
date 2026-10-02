@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import AuthMenu from './AuthMenu.jsx';
 import CodeTypeMark from './CodeTypeMark.jsx';
 import { CheckIcon, ChevronIcon } from './Icons.jsx';
 import { useGameStore } from '../store/gameStore.js';
 import { THEME_META } from '../utils/themes.js';
-import { apiUrl } from '../utils/env.js';
 import { FE_VERSION } from '../utils/siteConfig.js';
 
 // Mini editor mock, painted with the theme's own tokens so the card previews
@@ -281,9 +280,7 @@ function FeaturesMenu() {
 
 export default function TopBar() {
   const snippet = useGameStore((s) => s.snippet);
-  const apiOnline = useGameStore((s) => s.apiOnline);
   const catalogSource = useGameStore((s) => s.catalogSource);
-  const [apiVersion, setApiVersion] = useState('1.0.0');
 
   // CODETYPE logo = home: jump to the train view and reset any live run
   const goHome = () => {
@@ -306,20 +303,6 @@ export default function TopBar() {
     st.setView('train');
     st.setDeckTab('flash');
   };
-
-  useEffect(() => {
-    if (!apiOnline) return;
-    let cancelled = false;
-    fetch(apiUrl('/api/health'))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!cancelled && j?.version) setApiVersion(String(j.version));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = false;
-    };
-  }, [apiOnline]);
 
   return (
     <header className="sticky top-0 z-20 flex h-12 items-center justify-between gap-3 border-b border-edge bg-panel/85 px-5 backdrop-blur">
@@ -361,16 +344,6 @@ export default function TopBar() {
         <AuthMenu />
         <ThemeMenu />
 
-        <span
-          className={`inline-flex items-center gap-2 border px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] ${
-            apiOnline
-              ? 'border-pulse/50 bg-pulse/10 text-pulse'
-              : 'border-accent/50 bg-accent/10 text-accent'
-          }`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${apiOnline ? 'bg-pulse' : 'bg-accent'} animate-pulse-soft`} />
-          {apiOnline ? 'API LINK: LIVE' : 'API LINK: LOCAL'}
-        </span>
         <span className="text-[11px] font-bold tracking-[0.18em] text-accent" title="frontend build">v{FE_VERSION}</span>
       </div>
     </header>

@@ -627,9 +627,12 @@ main[class*="max-w-[1600px]"] > div.order-1 > p { display: none; }
 .hud-card.px-5.py-4 .text-3xl { font-family: var(--font-display); letter-spacing: -.07em; }
 .hud-card.px-5.py-4 .border-t { border-color: var(--line-soft); }
 
-/* Typing arena — auto-follow viewport. A fixed 3-line window (.arena-window)
-   clips the full snippet while .arena-track slides up line by line to keep
-   the caret line in view, so a long run never needs manual scrolling.
+/* Typing arena — preview, then auto-follow. Before the first key,
+   .arena-window-preview deliberately has no vertical clip so the operator can
+   inspect the entire target. Once the run begins, the three-line
+   .arena-window-following clips the full snippet while .arena-track slides up
+   line by line to keep the caret in view. A long run therefore needs no
+   manual scrolling.
    NOTE: no overflow:hidden on the card itself — it would clip the HUD corner
    brackets (they sit 1px outside the card edge). */
 .hud-card:has(.arena-scroll) > header { background: rgb(var(--c-panel2) / .18); }
@@ -639,13 +642,22 @@ main[class*="max-w-[1600px]"] > div.order-1 > p { display: none; }
 }
 .arena-scroll::-webkit-scrollbar-thumb { border-radius: 99px; }
 .arena-window {
-  overflow: hidden;          /* clips the lines above / below the window */
+  overflow: hidden;          /* clips the lines above / below the live window */
   width: max-content;        /* long lines stretch the window so the outer box can h-scroll */
   min-width: 100%;
+}
+.arena-window-preview {
+  height: auto;
+  overflow: visible;         /* idle state: show every line before the test starts */
 }
 .arena-track {
   will-change: transform;
   transition: transform 260ms cubic-bezier(.23, 1, .32, 1);
+}
+.arena-window-preview .arena-track {
+  /* Restarting returns to the complete preview immediately, rather than
+     animating old, off-screen lines back down through the target. */
+  transition: none;
 }
 
 /* The left/right rails read as a component gallery around the main tool. */
