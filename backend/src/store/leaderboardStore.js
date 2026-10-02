@@ -47,23 +47,6 @@ const supa = usingSupabase
 let cache = null;
 let writeQueue = Promise.resolve();
 
-// The public all-board endpoint is hit by every BOARDS view, but it changes
-// only when a qualifying score is saved. A short shared cache removes repeated
-// store/Supabase work and coalesces simultaneous first visitors; writes below
-// invalidate it immediately, so live results stay correct.
-const ALL_BOARDS_CACHE_MS = 15_000;
-let allBoardsCache = null;
-let allBoardsRequest = null;
-let allBoardsGeneration = 0;
-
-export function invalidateAllBoardsCache() {
-  allBoardsGeneration += 1;
-  allBoardsCache = null;
-  // A read started before a score write may contain the old top 10. Let new
-  // callers create a fresh read; the generation check prevents stale caching.
-  allBoardsRequest = null;
-}
-
 function loadFile() {
   if (cache) return cache;
   try {
@@ -205,77 +188,20 @@ export async function submit(run, { name = 'GUEST', guestId = 'anon' } = {}) {
     placements.push({ category, board, rank });
   }
 
-  if (placements.length) invalidateAllBoardsCache();
-
   const best = placements.length
     ? placements.reduce((a, b) => (b.rank < a.rank ? b : a))
     : null;
   return { placements, best };
 }
 
-async function readAllBoards(dateStr) {
-  // On a fresh file install, seed every board in memory and persist once. The
-  // old path seeded/persisted each of the 10 boards separately, which made the
-  // very first leaderboard visit needlessly slow.
-  if (!usingSupabase) {
-    const store = loadFile();
-    const out = {};
-    let seeded = false;
-    for (const category of CATEGORIES) {
-      out[category] = {};
-      for (const board of BOARDS) {
-        const k = key(category, board);
-        if (!Array.isArray(store[k]) || !store[k].length) {
-          store[k] = seedBoard(category, board, dateStr);
-          seeded = true;
-        }
-        out[category][board] = store[k].map(shape).sort(better).slice(0, TOP_N);
-      }
-    }
-    if (seeded) await persistFile();
-    return out;
-  }
-
-  // Supabase reads are independent. Running the 10 tiny top-10 queries in
-  // parallel replaces a 10-round-trip waterfall with one round of latency.
-  const categories = await Promise.all(
-    CATEGORIES.map(async (category) => {
-      const boards = await Promise.all(
-        BOARDS.map(async (board) => [board, await getBoard(category, board, dateStr)])
-      );
-      return [category, Object.fromEntries(boards)];
-    })
-  );
-  return Object.fromEntries(categories);
-}
-
 export async function allBoards(dateStr = todayStr()) {
-  const now = Date.now();
-  if (
-    allBoardsCache &&
-    allBoardsCache.dateStr === dateStr &&
-    now - allBoardsCache.updatedAt < ALL_BOARDS_CACHE_MS
-  ) {
-    return allBoardsCache.boards;
-  }
-  if (allBoardsRequest?.dateStr === dateStr) return allBoardsRequest.promise;
-
-  const generation = allBoardsGeneration;
-  let requestPromise;
-  requestPromise = readAllBoards(dateStr).then(
-    (boards) => {
-      // Never let a response begun before a score write re-cache stale ranks.
-      if (generation === allBoardsGeneration) {
-        allBoardsCache = { dateStr, boards, updatedAt: Date.now() };
-      }
-      if (allBoardsRequest?.promise === requestPromise) allBoardsRequest = null;
-      return boards;
-    },
-    (error) => {
-      if (allBoardsRequest?.promise === requestPromise) allBoardsRequest = null;
-      throw error;
+  const out = {};
+  for (const category of CATEGORIES) {
+    out[category] = {};
+    for (const board of BOARDS) {
+      // eslint-disable-next-line no-await-in-loop
+      out[category][board] = await getBoard(category, board, dateStr);
     }
-  );
-  allBoardsRequest = { dateStr, promise: requestPromise };
-  return requestPromise;
+  }
+  return out;
 }

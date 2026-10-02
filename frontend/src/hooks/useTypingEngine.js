@@ -21,11 +21,6 @@ export function useTypingEngine() {
       if (!state.snippet || state.uiOpen) return;
 
       const key = e.key;
-      // Reserve help triggers until a run is actually under way. `?` is a
-      // printable code character, so without this early return the capture
-      // listener would consume it before KeyboardHelp can open the dialog.
-      if (key === 'F1' || (key === '?' && state.status !== 'running' && state.status !== 'paused')) return;
-
       const printable =
         key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
       const controlled = CONTROL_KEYS.has(key);

@@ -99,8 +99,7 @@ function cleanGhost(ghost, pointer) {
 export const useGameStore = create((set, get) => ({
   catalog: [],
   catalogSource: 'loading',
-  // null = probing at startup, false = local/offline fallback, true = live.
-  apiOnline: null,
+  apiOnline: false,
   authUser: null, // signed-in email, or null = guest (local data)
   profileName: LOCAL_PROFILE.name, // shown in the top bar (instead of the email)
   profileAvatar: LOCAL_PROFILE.avatar, // data-URL photo — top bar, dropdown, flash cards
