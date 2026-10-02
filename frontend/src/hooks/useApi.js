@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { api, fetchCatalog } from '../utils/api.js';
+import {
+  api,
+  fetchCatalog,
+  invalidateLeaderboardCache,
+  prefetchLeaderboard,
+  readCachedLeaderboard
+} from '../utils/api.js';
 import { guestTag } from '../utils/guestId.js';
 import { wsUrl } from '../utils/env.js';
 import { track } from '../utils/analytics.js';
@@ -11,6 +17,7 @@ import { useGameStore } from '../store/gameStore.js';
 export function useDaily() {
   const [data, setData] = useState(null);
   const dataRef = useRef(null);
+  const apiOnline = useGameStore((s) => s.apiOnline);
   dataRef.current = data;
   const refresh = useCallback(() => {
     api
@@ -20,25 +27,26 @@ export function useDaily() {
         /* keep whatever we had; self-heal below retries until the API is back */
       });
   }, []);
-  // initial fetch + self-heal: while no data is on screen, retry every 5s
-  // (page loaded while the API was down must NOT stick on "SYNCING…")
+  // Do not compete with the initial health/catalog probes. The bundled target
+  // catalog is ready immediately; once the link is known live we fetch this
+  // personalized side panel and retry until it arrives.
   useEffect(() => {
-    if (data) return;
+    if (data || apiOnline !== true) return;
     refresh();
     const id = setInterval(() => {
       if (dataRef.current) clearInterval(id);
       else refresh();
     }, 5000);
     return () => clearInterval(id);
-  }, [data, refresh]);
+  }, [data, apiOnline, refresh]);
   // re-fetch the moment a run completes so streak / finished-so-far update live
   // (delayed a beat so the session POST lands before we read the leaderboard)
   const lastRunId = useGameStore((s) => s.lastRun?.id);
   useEffect(() => {
-    if (!lastRunId) return;
+    if (!lastRunId || apiOnline !== true) return;
     const id = setTimeout(refresh, 1500);
     return () => clearTimeout(id);
-  }, [lastRunId, refresh]);
+  }, [lastRunId, apiOnline, refresh]);
   return data;
 }
 
@@ -93,12 +101,13 @@ export function useSessionPost() {
   const lastRun = useGameStore((s) => s.lastRun);
   const setLbPlacement = useGameStore((s) => s.setLbPlacement);
   useEffect(() => {
-    if (!apiOnline || !lastRun) return;
+    if (apiOnline !== true || !lastRun) return;
     if (postedRunIds.has(lastRun.id)) return;
     postedRunIds.add(lastRun.id);
     api
       .saveSession({ ...lastRun, operator: operatorName() })
       .then((res) => {
+        if (res?.leaderboard?.placements?.length) invalidateLeaderboardCache();
         if (res?.leaderboard?.best) setLbPlacement(res.leaderboard.best);
       })
       .catch(() => {});
@@ -116,9 +125,10 @@ const REPO_ID = /^(py|js|java|cpp|rs|sql)-/;
 export function useGhost() {
   const snippetId = useGameStore((s) => s.snippet?.id);
   const lastRunId = useGameStore((s) => s.lastRun?.id);
+  const apiOnline = useGameStore((s) => s.apiOnline);
   const setRaceGhost = useGameStore((s) => s.setRaceGhost);
   useEffect(() => {
-    if (!snippetId || !REPO_ID.test(snippetId)) {
+    if (apiOnline !== true || !snippetId || !REPO_ID.test(snippetId)) {
       setRaceGhost(null);
       return;
     }
@@ -140,7 +150,7 @@ export function useGhost() {
     return () => {
       live = false;
     };
-  }, [snippetId, lastRunId, setRaceGhost]);
+  }, [snippetId, lastRunId, apiOnline, setRaceGhost]);
 }
 
 function summarizeLocal(s) {
@@ -157,39 +167,67 @@ function summarizeLocal(s) {
   };
 }
 
+// The bundled catalog is authoritative enough to start practicing immediately.
+// Hydrating the API summary afterwards is an enhancement, not a blocker for
+// first paint or for the API status badge.
+const LOCAL_CATALOG = SNIPPETS.map(summarizeLocal);
+
 export function useCatalog() {
   const setCatalog = useGameStore((s) => s.setCatalog);
   const setApiOnline = useGameStore((s) => s.setApiOnline);
 
+  // Run before paint: the control deck and typing target never wait on the
+  // network. This also gives an offline visitor a fully working app instantly.
+  useLayoutEffect(() => {
+    setCatalog(LOCAL_CATALOG, 'local');
+  }, [setCatalog]);
+
   useEffect(() => {
     let cancelled = false;
+    let connecting = false;
 
-    const load = async () => {
-      try {
-        await api.health();
-        // The catalog endpoint is paginated (100/page); walk it so the engine
-        // still gets every language/mode. One request today, correct forever.
-        const snippets = await fetchCatalog();
-        if (!cancelled) {
-          setCatalog(snippets, 'api');
-          setApiOnline(true);
-          return true;
-        }
-        return false;
-      } catch {
-        if (!cancelled) {
-          setCatalog(SNIPPETS.map(summarizeLocal), 'local');
-          setApiOnline(false);
-        }
-        return false;
-      }
+    const connect = () => {
+      if (cancelled || connecting) return;
+      connecting = true;
+      let settled = 0;
+      let reachable = false;
+
+      const markLive = () => {
+        if (cancelled || reachable) return;
+        reachable = true;
+        setApiOnline(true);
+        // Warm the public board in the background. The BOARDS tab consumes the
+        // same in-flight/cached request, so it opens with data instead of a
+        // fresh network wait.
+        prefetchLeaderboard();
+      };
+      const finish = () => {
+        settled += 1;
+        if (settled !== 2) return;
+        connecting = false;
+        if (!reachable && !cancelled) setApiOnline(false);
+      };
+
+      // Do these in parallel. The old health → catalog waterfall held the
+      // badge at LOCAL until both round trips had finished. Either successful
+      // public endpoint proves the API is live; catalog hydration can finish
+      // independently after the practice UI is already usable.
+      api.health().then(markLive).catch(() => {}).finally(finish);
+      fetchCatalog()
+        .then((snippets) => {
+          if (snippets.length && !cancelled) setCatalog(snippets, 'api');
+          if (snippets.length) markLive();
+        })
+        .catch(() => {})
+        .finally(finish);
     };
 
-    load();
-    // self-heal: if we booted offline, retry the API link every 5s (offline only —
-    // no polling load while healthy)
+    connect();
+    // self-heal only while the API is actually unavailable. A catalog refresh
+    // is no longer a prerequisite for a LIVE link, so a slow catalog cannot
+    // make the badge regress to LOCAL.
     const id = setInterval(() => {
-      if (!cancelled && useGameStore.getState().catalogSource === 'local') load();
+      if (!cancelled && useGameStore.getState().apiOnline !== true) connect();
     }, 5000);
     return () => {
       cancelled = true;
@@ -198,21 +236,19 @@ export function useCatalog() {
   }, [setCatalog, setApiOnline]);
 }
 
-
-
 // ── Leaderboards ───────────────────────────────────────────────────────────
 // All 10 boards in one request, then kept live two ways:
 //   • a WebSocket push the instant anyone anywhere posts a top-10 score
 //   • a 20s poll, which is what keeps this correct with no socket open and
 //     across multiple API instances (the server's score bus is per-process)
 export function useLeaderboards() {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => readCachedLeaderboard()?.data || null);
   const [live, setLive] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(() => readCachedLeaderboard()?.updatedAt || null);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(({ force = false } = {}) => {
     return api
-      .leaderboard()
+      .leaderboard({ force })
       .then((d) => {
         setData(d);
         setUpdatedAt(Date.now());
@@ -222,8 +258,10 @@ export function useLeaderboards() {
   }, []);
 
   useEffect(() => {
+    // Usually resolves from the startup warm-up cache. Polls and live score
+    // events deliberately bypass it so visible data is always current.
     refresh();
-    const poll = setInterval(refresh, 20000);
+    const poll = setInterval(() => refresh({ force: true }), 20000);
 
     let ws = null;
     let closed = false;
@@ -244,7 +282,7 @@ export function useLeaderboards() {
         ws.onmessage = (ev) => {
           try {
             const msg = JSON.parse(ev.data);
-            if (msg.type === 'leaderboard') refresh();
+            if (msg.type === 'leaderboard') refresh({ force: true });
           } catch {
             /* ignore malformed frames */
           }
