@@ -25,8 +25,8 @@ export default function DiagnosticDashboard() {
   return (
     <div className="space-y-4">
       <HudCard label="TELEMETRY DUMP // TEST COMPLETE" corners="amber" className="shadow-glow-amber" bodyClassName="p-0">
-        <div className="flex flex-wrap items-center gap-4 px-5 py-4">
-          <div>
+        <div className="flex flex-col gap-4 px-5 py-4 min-[900px]:flex-row min-[900px]:items-center">
+          <div className="shrink-0">
             <div className="hud-label mb-1">SUSTAINED</div>
             <div className="flex items-baseline gap-2">
               <span className="text-5xl font-bold tabular-nums text-accent" style={{ textShadow: '0 0 24px rgb(var(--c-accent) / 0.35)' }}>
@@ -35,8 +35,8 @@ export default function DiagnosticDashboard() {
               <span className="text-[11px] font-semibold tracking-[0.22em] text-dim">WPM</span>
             </div>
           </div>
-          <div className="h-12 w-px bg-edge" />
-          <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-6">
+          <div className="hidden h-12 w-px shrink-0 bg-edge min-[900px]:block" />
+          <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 min-[900px]:flex-1 min-[900px]:grid-cols-6">
             <StatCard label="CPM" value={stats.cpm} unit="CH/MIN" tone="ink" />
             <StatCard label="RAW" value={stats.rawWpm} unit="WPM" tone="cyan" />
             <StatCard label="ACCURACY" value={`${stats.accuracy}%`} tone={stats.accuracy >= 95 ? 'ink' : 'blood'} />
