@@ -39,12 +39,17 @@ function encodeCloses(closes, line) {
 
 // The target is fully exposed while the test is idle, so the operator can
 // read a long snippet before the clock starts. The first keystroke switches
-// the arena into a compact three-line viewport. While you are on one of the
-// first three lines it stays at the top; the moment you reach line 4 it slides
-// up so line 1 scrolls away. That keeps the caret in view without manual
-// scrolling and makes each completed line leave the viewport naturally.
+// the arena into a follow viewport: every line of the target is still on the
+// page (no bottom clipping of the code you are about to type), and the whole
+// block slides up one line at a time so the caret always rides on the third
+// visible row. Reaching line n pushes line n-3 up out of the top edge — it
+// fades away in the bleed strip instead of popping out — while lines
+// n+1, n+2, n+3 … travel up with it and stay readable.
 const LINE_H = 26; // matches LineRow's leading-[26px]
-const VISIBLE_LINES = 3;
+const LINES_ABOVE = 2; // caret sits on the 3rd row: 2 lines stay above it
+const MAX_WINDOW_LINES = 12; // height cap so a 45-line file is not a skyscraper
+const TOP_BLEED = LINE_H; // one line of fade-out space above the live window
+const BOTTOM_BLEED = 18; // sliver of the next line peeks in, faded
 
 export default function TypingArena({ captureRef }) {
   const snippet = useGameStore((s) => s.snippet);
@@ -107,13 +112,21 @@ export default function TypingArena({ captureRef }) {
 
   // First visible line. Before the first key there is no viewport clipping at
   // all: the entire target remains available for a quick read-through. Once a
-  // run starts, lines 1-3 stay put and, from line 4 on, the window follows the
-  // caret one line at a time.
+  // run starts, only the TOP is trimmed: the window slides up one line at a
+  // time so line n-3 leaves through the top edge, while everything below the
+  // caret (lines n+1 …) stays in view and rides up with it. Scrolling stops
+  // near the end so the final line settles at the bottom instead of dragging
+  // blank space into the window.
+  const windowLines = snippet ? Math.min(MAX_WINDOW_LINES, snippet.lines.length) : MAX_WINDOW_LINES;
   const windowStart = useMemo(() => {
     if (!snippet || isPreview) return 0;
-    return Math.max(0, Math.min(currentLine - (VISIBLE_LINES - 1), snippet.lines.length - VISIBLE_LINES));
-  }, [snippet, currentLine, isPreview]);
-  const visibleCount = snippet ? Math.min(VISIBLE_LINES, snippet.lines.length) : VISIBLE_LINES;
+    return Math.max(0, Math.min(currentLine - LINES_ABOVE, snippet.lines.length - windowLines));
+  }, [snippet, currentLine, isPreview, windowLines]);
+
+  // Constant for the whole run (windowStart is clamped above), so the card never
+  // jumps while typing: N crisp lines + a faded bleed line on top + a sliver of
+  // the following line at the bottom.
+  const windowHeight = windowLines * LINE_H + TOP_BLEED + BOTTOM_BLEED;
 
   const ghostPosOut = status === 'running' && raceGhost ? ghostPos : null;
   const rivalPosOut = status === 'running' && hasRival ? Math.min(rivalPos, snippet.charCount) : null;
@@ -187,10 +200,23 @@ export default function TypingArena({ captureRef }) {
       <div className="arena-scroll relative overflow-x-auto font-mono text-[13px]">
         <div
           className={`arena-window ${isPreview ? 'arena-window-preview' : 'arena-window-following'}`}
-          style={isPreview ? undefined : { height: `${visibleCount * LINE_H}px` }}
-          aria-label={isPreview ? 'Full code preview' : 'Auto-scrolling code viewport'}
+          style={isPreview ? undefined : { height: `${windowHeight}px` }}
+          aria-label={
+            isPreview
+              ? 'Full code preview'
+              : `Auto-scrolling code viewport, showing lines ${windowStart + 1} to ${Math.min(
+                  snippet.lines.length,
+                  windowStart + windowLines
+                )}`
+          }
         >
-          <div className="arena-track" style={{ transform: `translateY(${-windowStart * LINE_H}px)` }}>
+          {/* TOP_BLEED parks the outgoing line in the fade strip above the live
+              window, so line n-3 is already (mostly) gone by the time the caret
+              reaches line n — it never just gets sliced at the edge. */}
+          <div
+            className="arena-track"
+            style={{ transform: `translateY(${isPreview ? 0 : TOP_BLEED - windowStart * LINE_H}px)` }}
+          >
             {lineViews.map((view) => (
               <LineRow
                 key={view.lineIndex}

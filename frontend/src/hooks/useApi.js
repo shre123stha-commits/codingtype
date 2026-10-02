@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import {
   api,
@@ -13,41 +13,142 @@ import { track } from '../utils/analytics.js';
 import { SNIPPETS } from '../data/snippets.js';
 import { ghostPointsFrom } from '../utils/ghostRace.js';
 import { useGameStore } from '../store/gameStore.js';
+// Same module the API uses to pick the daily target, so the client's local
+// derivation can never drift from the server's answer.
+import { dailySnippet, todayStr } from '../../../shared/daily.js';
+
+// ── Daily challenge ────────────────────────────────────────────────────────
+// The daily target is a pure function of the date and the bundled catalog, so
+// the browser can derive it with zero network — the same FNV-1a pick the server
+// makes (shared/daily.js, over the same ordered snippet list). The card is
+// therefore fully rendered on first paint, and the API is only asked for the
+// two things it alone knows: this operator's streak and today's finishing
+// times. `local: true` marks the not-yet-personalized half.
+function localDaily() {
+  const sn = dailySnippet(todayStr());
+  return {
+    date: todayStr(),
+    snippetId: sn.id,
+    title: sn.title,
+    source: sn.source,
+    language: sn.language,
+    mode: sn.mode,
+    streak: 0,
+    myRuns: 0,
+    top: [],
+    local: true
+  };
+}
+
+// Module-scoped so every consumer shares ONE request and ONE snapshot: the
+// control deck, RACE and FLASH CARDS each call useDaily(), which used to mean
+// three identical /api/daily round trips on the same page.
+let dailySnapshot = null;
+let dailyRequest = null;
+let dailyRetry = null;
+let dailyAttempts = 0;
+let derivedFor = null; // local date the local fallback was derived for
+const dailyListeners = new Set();
+
+function currentDaily() {
+  const today = todayStr();
+  // Re-derive when the local day rolls over (a tab left open past midnight).
+  // A server answer is never discarded for a date mismatch — the API's clock
+  // decides the challenge, and it may sit in a different timezone than this
+  // browser, so its date is legitimately not ours.
+  if (!dailySnapshot || derivedFor !== today) {
+    dailySnapshot = localDaily();
+    derivedFor = today;
+  }
+  return dailySnapshot;
+}
+
+function publishDaily(next) {
+  dailySnapshot = next;
+  for (const listener of dailyListeners) listener();
+}
+
+// Backs off instead of hammering: 3s, then ~5s, 8s … capped at 30s, up to 10
+// tries. Mounting again (or finishing a run) resets the budget and refetches.
+function scheduleDailyRetry() {
+  if (dailyRetry || !dailyListeners.size || dailyAttempts >= 10) return;
+  const delay = Math.min(30_000, 3000 * 1.6 ** dailyAttempts);
+  dailyRetry = setTimeout(() => {
+    dailyRetry = null;
+    fetchDaily();
+  }, delay);
+}
+
+// A settled answer stays fresh enough for a few seconds, so the control deck,
+// RACE and FLASH CARDS mounting one after another share a single request
+// instead of firing their own copy.
+const DAILY_MIN_GAP_MS = 10_000;
+let dailyLastAttempt = 0;
+
+function fetchDaily({ force = false } = {}) {
+  if (dailyRequest) return dailyRequest;
+  if (!force && Date.now() - dailyLastAttempt < DAILY_MIN_GAP_MS) return Promise.resolve(null);
+  dailyLastAttempt = Date.now();
+  dailyRequest = api
+    .daily()
+    .then((d) => {
+      dailyAttempts = 0;
+      if (d && d.snippetId) publishDaily({ ...d, local: false });
+      return d;
+    })
+    .catch(() => {
+      dailyAttempts += 1;
+      scheduleDailyRetry();
+      return null;
+    })
+    .finally(() => {
+      dailyRequest = null;
+    });
+  return dailyRequest;
+}
+
+export function prefetchDaily() {
+  return fetchDaily();
+}
+
+export function refreshDaily() {
+  dailyAttempts = 0;
+  return fetchDaily({ force: true });
+}
 
 export function useDaily() {
-  const [data, setData] = useState(null);
-  const dataRef = useRef(null);
-  const apiOnline = useGameStore((s) => s.apiOnline);
-  dataRef.current = data;
-  const refresh = useCallback(() => {
-    api
-      .daily()
-      .then(setData)
-      .catch(() => {
-        /* keep whatever we had; self-heal below retries until the API is back */
-      });
-  }, []);
-  // Do not compete with the initial health/catalog probes. The bundled target
-  // catalog is ready immediately; once the link is known live we fetch this
-  // personalized side panel and retry until it arrives.
+  const [data, setData] = useState(currentDaily);
+
   useEffect(() => {
-    if (data || apiOnline !== true) return;
-    refresh();
-    const id = setInterval(() => {
-      if (dataRef.current) clearInterval(id);
-      else refresh();
-    }, 5000);
-    return () => clearInterval(id);
-  }, [data, apiOnline, refresh]);
+    const listener = () => setData(currentDaily());
+    dailyListeners.add(listener);
+    listener();
+    // Deliberately NOT gated on apiOnline: waiting for the health probe to
+    // resolve put the daily a whole round trip (two, on a cold API) behind
+    // first paint. It self-heals with backoff while the API is unreachable.
+    fetchDaily();
+    return () => {
+      dailyListeners.delete(listener);
+    };
+  }, []);
+
   // re-fetch the moment a run completes so streak / finished-so-far update live
-  // (delayed a beat so the session POST lands before we read the leaderboard)
+  // (delayed a beat so the session POST lands before we read the daily)
   const lastRunId = useGameStore((s) => s.lastRun?.id);
   useEffect(() => {
-    if (!lastRunId || apiOnline !== true) return;
-    const id = setTimeout(refresh, 1500);
+    if (!lastRunId) return undefined;
+    const id = setTimeout(refreshDaily, 1500);
     return () => clearTimeout(id);
-  }, [lastRunId, apiOnline, refresh]);
+  }, [lastRunId]);
+
   return data;
+}
+
+// The bundled catalog carries the code, so the daily preview and "RUN DAILY"
+// work with zero network instead of waiting for a by-id fetch.
+export function localSnippetById(id) {
+  const found = SNIPPETS.find((s) => s.id === id);
+  return found ? summarizeLocal(found) : null;
 }
 
 export function usePbestSnippets() {
@@ -185,6 +286,7 @@ export function useCatalog() {
   useEffect(() => {
     let cancelled = false;
     let connecting = false;
+    let warmed = false;
 
     const connect = () => {
       if (cancelled || connecting) return;
@@ -192,14 +294,24 @@ export function useCatalog() {
       let settled = 0;
       let reachable = false;
 
+      // Warm the two side panels NOW, on the same tick as the health probe.
+      // They used to wait for health to resolve, which serialized them a full
+      // round trip (two, when the API is cold-starting) behind everything
+      // else. The BOARDS tab and the daily card consume these same requests,
+      // so they open with real data instead of a fresh network wait.
+      // Once only: while the API is unreachable this loop retries every 5s,
+      // and each subsystem already backs off on its own (daily) or polls
+      // (boards) — re-warming on every probe would just double the traffic.
+      if (!warmed) {
+        warmed = true;
+        prefetchLeaderboard();
+        prefetchDaily();
+      }
+
       const markLive = () => {
         if (cancelled || reachable) return;
         reachable = true;
         setApiOnline(true);
-        // Warm the public board in the background. The BOARDS tab consumes the
-        // same in-flight/cached request, so it opens with data instead of a
-        // fresh network wait.
-        prefetchLeaderboard();
       };
       const finish = () => {
         settled += 1;

@@ -68,9 +68,42 @@ let leaderboardCache = null;
 let leaderboardRequest = null;
 let leaderboardGeneration = 0;
 
+// Second tier: the last good board survives a reload in localStorage, so the
+// BOARDS tab paints real rows on the very first open — even on a cold API
+// (Render's free tier can take 30s+ to wake up) or offline. It is only ever a
+// first-paint cache: the view refreshes over it immediately.
+const LB_STORE_KEY = 'codetype:leaderboard:v2';
+
+function readStoredLeaderboard() {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem(LB_STORE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.data || !parsed.data.boards) return null;
+    return { data: parsed.data, updatedAt: Number(parsed.updatedAt) || 0 };
+  } catch {
+    return null; // private mode / quota / corrupt payload — never fatal
+  }
+}
+
+function writeStoredLeaderboard(data, updatedAt) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(LB_STORE_KEY, JSON.stringify({ data, updatedAt }));
+  } catch {
+    /* full or unavailable storage just means no first-paint shortcut */
+  }
+}
+
 function cachedLeaderboard() {
   if (!leaderboardCache || Date.now() - leaderboardCache.updatedAt >= LEADERBOARD_CACHE_MS) return null;
   return leaderboardCache;
+}
+
+// Best snapshot available right now, however old — used to paint instantly.
+function snapshotLeaderboard() {
+  return leaderboardCache || readStoredLeaderboard();
 }
 
 function loadLeaderboard({ force = false } = {}) {
@@ -88,7 +121,10 @@ function loadLeaderboard({ force = false } = {}) {
     (data) => {
       // An old request that settles after a newly saved score must not repopulate
       // the cache with pre-score data.
-      if (generation === leaderboardGeneration) leaderboardCache = { data, updatedAt: Date.now() };
+      if (generation === leaderboardGeneration && data?.boards) {
+        leaderboardCache = { data, updatedAt: Date.now() };
+        writeStoredLeaderboard(data, leaderboardCache.updatedAt);
+      }
       if (leaderboardRequest === requestPromise) leaderboardRequest = null;
       return data;
     },
@@ -101,8 +137,10 @@ function loadLeaderboard({ force = false } = {}) {
   return requestPromise;
 }
 
+// For first paint: the freshest snapshot we have, memory or disk. Age is
+// surfaced to the UI (the BOARDS header shows the update time).
 export function readCachedLeaderboard() {
-  return cachedLeaderboard();
+  return snapshotLeaderboard();
 }
 
 export function prefetchLeaderboard() {

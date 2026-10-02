@@ -629,10 +629,14 @@ main[class*="max-w-[1600px]"] > div.order-1 > p { display: none; }
 
 /* Typing arena — preview, then auto-follow. Before the first key,
    .arena-window-preview deliberately has no vertical clip so the operator can
-   inspect the entire target. Once the run begins, the three-line
-   .arena-window-following clips the full snippet while .arena-track slides up
-   line by line to keep the caret in view. A long run therefore needs no
-   manual scrolling.
+   inspect the entire target. Once the run begins, .arena-window-following
+   slides .arena-track up line by line to keep the caret in view, but it only
+   trims the TOP: the bottom edge sits below the live window (plus a sliver of
+   the next line), so every line still ahead of the caret stays on screen and
+   scrolls up together with it.
+   The mask fades the line that just left through the top edge and the sliver
+   of the line poking in at the bottom. Bleed sizes mirror TOP_BLEED /
+   BOTTOM_BLEED in TypingArena.jsx.
    NOTE: no overflow:hidden on the card itself — it would clip the HUD corner
    brackets (they sit 1px outside the card edge). */
 .hud-card:has(.arena-scroll) > header { background: rgb(var(--c-panel2) / .18); }
@@ -649,6 +653,34 @@ main[class*="max-w-[1600px]"] > div.order-1 > p { display: none; }
 .arena-window-preview {
   height: auto;
   overflow: visible;         /* idle state: show every line before the test starts */
+}
+.arena-window-following {
+  /* TOP_BLEED (26px) above: the line scrolling out fades to nothing instead of
+     being sliced in half at the edge. BOTTOM_BLEED (18px) below: a ghost of the
+     next line peeks in so the code clearly continues. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgb(0 0 0 / 0) 10px,
+    rgb(0 0 0 / .1) 18px,
+    rgb(0 0 0 / .45) 24px,
+    #000 26px,
+    #000 calc(100% - 18px),
+    rgb(0 0 0 / .35) calc(100% - 8px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgb(0 0 0 / 0) 10px,
+    rgb(0 0 0 / .1) 18px,
+    rgb(0 0 0 / .45) 24px,
+    #000 26px,
+    #000 calc(100% - 18px),
+    rgb(0 0 0 / .35) calc(100% - 8px),
+    transparent 100%
+  );
+  transition: height 260ms cubic-bezier(.23, 1, .32, 1);
 }
 .arena-track {
   will-change: transform;
