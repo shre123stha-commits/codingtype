@@ -24,7 +24,6 @@ const ah = (fn) => (req, res) => {
 };
 
 router.get('/meta', (req, res) => {
-  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
   res.json({
     categories: CATEGORIES.map((id) => ({ id, label: CATEGORY_LABELS[id] })),
     boards: BOARDS.map((id) => ({ id, label: BOARD_LABELS[id] })),
@@ -39,11 +38,7 @@ router.get('/meta', (req, res) => {
 // view snappy and means the client never fires 10 calls.
 router.get('/', ah(async (req, res) => {
   const date = todayStr();
-  const boards = await allBoards(date);
-  // Public data: a short browser/CDN cache makes repeat BOARDS visits fast.
-  // The client uses cache: 'no-store' for WebSocket/poll refreshes.
-  res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=45');
-  res.json({ date, boards });
+  res.json({ date, boards: await allBoards(date) });
 }));
 
 router.get('/:category/:board', ah(async (req, res) => {
