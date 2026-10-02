@@ -280,7 +280,6 @@ function FeaturesMenu() {
 
 export default function TopBar() {
   const snippet = useGameStore((s) => s.snippet);
-  const apiOnline = useGameStore((s) => s.apiOnline);
   const catalogSource = useGameStore((s) => s.catalogSource);
 
   // CODETYPE logo = home: jump to the train view and reset any live run
@@ -304,16 +303,6 @@ export default function TopBar() {
     st.setView('train');
     st.setDeckTab('flash');
   };
-
-  // `null` is a real startup state, not an offline fallback. Calling it out
-  // avoids a misleading LOCAL → LIVE flicker while the lightweight probe is
-  // still in flight.
-  const apiBadge =
-    apiOnline === true
-      ? { label: 'API LINK: LIVE', className: 'border-pulse/50 bg-pulse/10 text-pulse', dot: 'bg-pulse' }
-      : apiOnline === null
-      ? { label: 'API LINK: CHECKING', className: 'border-edge bg-panel2/50 text-dim', dot: 'bg-dim' }
-      : { label: 'API LINK: LOCAL', className: 'border-accent/50 bg-accent/10 text-accent', dot: 'bg-accent' };
 
   return (
     <header className="sticky top-0 z-20 flex h-12 items-center justify-between gap-3 border-b border-edge bg-panel/85 px-5 backdrop-blur">
@@ -355,13 +344,6 @@ export default function TopBar() {
         <AuthMenu />
         <ThemeMenu />
 
-        <span
-          aria-live="polite"
-          className={`inline-flex items-center gap-2 border px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] ${apiBadge.className}`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${apiBadge.dot} animate-pulse-soft`} />
-          {apiBadge.label}
-        </span>
         <span className="text-[11px] font-bold tracking-[0.18em] text-accent" title="frontend build">v{FE_VERSION}</span>
       </div>
     </header>
