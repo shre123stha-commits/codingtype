@@ -28,6 +28,9 @@ function summarize(snippet) {
 //   GET /api/snippets?mode=&language=&q=&limit=20&offset=0
 //   → { count, total, limit, offset, hasMore, snippets }
 router.get('/', (req, res) => {
+  // Curated snippets change only on deploy. Browser/CDN caching keeps the
+  // startup catalog fast without sacrificing eventual freshness.
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
   const mode = queryStr(req.query.mode, 24);
   const language = queryStr(req.query.language, 24);
   const q = queryStr(req.query.q, 120);
@@ -56,6 +59,7 @@ router.get('/', (req, res) => {
 });
 
 router.get('/meta', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
   const counts = {};
   for (const s of SNIPPETS) {
     const key = `${s.mode}/${s.language}`;
@@ -65,6 +69,7 @@ router.get('/meta', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
   const id = queryStr(req.params.id, 80);
   if (!id) return res.status(400).json({ error: 'invalid_snippet_id' });
   const snippet = SNIPPETS.find((s) => s.id === id);

@@ -37,10 +37,12 @@ function encodeCloses(closes, line) {
   return parts.join('|');
 }
 
-// Auto-follow viewport: exactly VISIBLE_LINES lines are on screen at a time.
-// While you are on one of the first three lines the window sits at the top;
-// the moment you reach line 4 the window slides up so line 1 scrolls away —
-// the caret never leaves the visible area and no manual scrolling is needed.
+// The target is fully exposed while the test is idle, so the operator can
+// read a long snippet before the clock starts. The first keystroke switches
+// the arena into a compact three-line viewport. While you are on one of the
+// first three lines it stays at the top; the moment you reach line 4 it slides
+// up so line 1 scrolls away. That keeps the caret in view without manual
+// scrolling and makes each completed line leave the viewport naturally.
 const LINE_H = 26; // matches LineRow's leading-[26px]
 const VISIBLE_LINES = 3;
 
@@ -101,12 +103,16 @@ export default function TypingArena({ captureRef }) {
     return lines.length - 1;
   }, [snippet, pointer]);
 
-  // First visible line. Clamped at both ends so the window never shows dead
-  // space: lines 1-3 stay put, from line 4 on the window follows the caret.
+  const isPreview = status === 'idle';
+
+  // First visible line. Before the first key there is no viewport clipping at
+  // all: the entire target remains available for a quick read-through. Once a
+  // run starts, lines 1-3 stay put and, from line 4 on, the window follows the
+  // caret one line at a time.
   const windowStart = useMemo(() => {
-    if (!snippet) return 0;
+    if (!snippet || isPreview) return 0;
     return Math.max(0, Math.min(currentLine - (VISIBLE_LINES - 1), snippet.lines.length - VISIBLE_LINES));
-  }, [snippet, currentLine]);
+  }, [snippet, currentLine, isPreview]);
   const visibleCount = snippet ? Math.min(VISIBLE_LINES, snippet.lines.length) : VISIBLE_LINES;
 
   const ghostPosOut = status === 'running' && raceGhost ? ghostPos : null;
@@ -179,7 +185,11 @@ export default function TypingArena({ captureRef }) {
       ) : null}
 
       <div className="arena-scroll relative overflow-x-auto font-mono text-[13px]">
-        <div className="arena-window" style={{ height: `${visibleCount * LINE_H}px` }}>
+        <div
+          className={`arena-window ${isPreview ? 'arena-window-preview' : 'arena-window-following'}`}
+          style={isPreview ? undefined : { height: `${visibleCount * LINE_H}px` }}
+          aria-label={isPreview ? 'Full code preview' : 'Auto-scrolling code viewport'}
+        >
           <div className="arena-track" style={{ transform: `translateY(${-windowStart * LINE_H}px)` }}>
             {lineViews.map((view) => (
               <LineRow
