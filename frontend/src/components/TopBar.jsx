@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import AuthMenu from './AuthMenu.jsx';
 import CodeTypeMark from './CodeTypeMark.jsx';
